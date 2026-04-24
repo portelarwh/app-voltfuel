@@ -159,6 +159,22 @@
         .legend-item{display:flex;align-items:center;gap:5px;font-size:.68rem;color:var(--text-muted)}
         .legend-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
 
+        /* COMBUSTÍVEL PILLS */
+        .comb-pills{display:flex;gap:5px;margin-bottom:10px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+        .comb-pills::-webkit-scrollbar{display:none}
+        .comb-pill{flex-shrink:0;padding:5px 12px;font-size:.62rem;font-weight:700;text-transform:uppercase;background:#2a2a2a;color:var(--text-muted);border:1px solid #333;border-radius:20px;cursor:pointer;transition:.15s;white-space:nowrap}
+        .comb-pill.ativo{background:#1e3a5f;color:#60a5fa;border-color:#1d4ed8}
+        .comb-pill:active{transform:scale(.97)}
+
+        /* BENCHMARK SCROLL */
+        .bench-wrap{position:relative}
+        .bench-scroll{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;padding-bottom:4px;scrollbar-width:none}
+        .bench-scroll::-webkit-scrollbar{display:none}
+        .bench-card-item{min-width:calc(50% - 5px);flex-shrink:0;scroll-snap-align:start;border-radius:10px;padding:10px;border-top-width:4px;border-top-style:solid;background:var(--card-bg);box-shadow:0 4px 6px rgba(0,0,0,.3)}
+        .bench-arrow{position:absolute;right:-2px;top:50%;transform:translateY(-50%);background:rgba(20,20,20,.92);border:1px solid #444;color:#aaa;border-radius:6px;padding:5px 8px;font-size:.75rem;cursor:pointer;display:none;z-index:2;line-height:1}
+        .bench-arrow.visivel{display:block}
+        .bench-empty{padding:20px;text-align:center;color:#444;font-size:.78rem;width:100%}
+
         /* PERÍODO */
         .periodo-pills{display:flex;gap:5px;margin-bottom:8px}
         .periodo-pill{flex:1;padding:7px 2px;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.02em;background:#2a2a2a;color:var(--text-muted);border:1px solid #333;border-radius:8px;cursor:pointer;text-align:center;transition:.15s}
@@ -417,18 +433,20 @@
             <div class="card">
                 <!-- Seletor de período -->
                 <div class="periodo-pills">
-                    <button class="periodo-pill ativo" data-p="mes-atual" onclick="selecionarPeriodo('mes-atual')">Mês atual</button>
+                    <button class="periodo-pill" data-p="mes-atual" onclick="selecionarPeriodo('mes-atual')">Mês atual</button>
                     <button class="periodo-pill" data-p="mes-anterior" onclick="selecionarPeriodo('mes-anterior')">Mês ant.</button>
                     <button class="periodo-pill" data-p="periodo" onclick="selecionarPeriodo('periodo')">Período</button>
-                    <button class="periodo-pill" data-p="total" onclick="selecionarPeriodo('total')">Total</button>
+                    <button class="periodo-pill ativo" data-p="total" onclick="selecionarPeriodo('total')">Total</button>
                 </div>
                 <div class="periodo-datas" id="periodo-datas">
                     <div class="input-group"><label>De</label><input type="date" id="periodo-de" onchange="atualizarDesempenho()"></div>
                     <div class="input-group"><label>At&#233;</label><input type="date" id="periodo-ate" onchange="atualizarDesempenho()"></div>
                 </div>
+                <!-- Pills de combustível — geradas dinamicamente -->
+                <div class="comb-pills" id="comb-pills"></div>
                 <!-- Título dinâmico -->
                 <div style="font-size:.8rem;font-weight:bold;color:var(--text-muted);margin-bottom:10px;text-align:center;">
-                    AN&#193;LISE DE DESEMPENHO &middot; <span id="label-periodo-atual" style="color:#60a5fa;">M&#202;S ATUAL</span>
+                    AN&#193;LISE DE DESEMPENHO &middot; <span id="label-periodo-atual" style="color:#60a5fa;">HIST&#211;RICO TOTAL</span>
                 </div>
                 <!-- Linha 1: métricas de ritmo -->
                 <div class="results-grid-3" style="margin-bottom:8px;">
@@ -465,25 +483,15 @@
                 </div>
             </div>
 
-            <div style="font-size:.8rem;font-weight:bold;color:var(--text-muted);margin-bottom:8px;text-align:center;margin-top:15px;">
+            <div style="font-size:.8rem;font-weight:bold;color:var(--text-muted);margin-bottom:8px;text-align:center;margin-top:15px;display:flex;align-items:center;justify-content:center;gap:8px;">
                 PAINEL DE BENCHMARK (CICLOS FECHADOS)
                 <button class="btn-chart-icon" onclick="abrirGrafico('kml')" title="Ver gr&#225;ficos">&#128200;</button>
             </div>
-            <div class="config-grid" style="gap:10px;">
-                <div class="card" style="margin-bottom:0;border-top:4px solid var(--green);padding:10px;">
-                    <div style="font-size:.8rem;font-weight:bold;color:var(--green);text-align:center;margin-bottom:10px;">ETANOL</div>
-                    <div class="compact-box bg-etanol-dark"><div class="compact-title" id="bench-et-kml-title">M&#201;DIA (KM/L)</div><span id="et-media" class="compact-value text-green">--</span></div>
-                    <div class="compact-box bg-etanol-dark"><div class="compact-title">CUSTO (R$/KM)</div><span id="et-custo" class="compact-value text-green">--</span></div>
-                    <div class="compact-box bg-etanol-dark"><div class="compact-title" id="bench-et-max-title">M&#193;XIMO (KM/L)</div><span id="et-max" class="compact-value text-green">--</span></div>
-                    <div class="compact-box bg-etanol-dark" style="margin-bottom:0;"><div class="compact-title" id="bench-et-min-title">M&#205;NIMO (KM/L)</div><span id="et-min" class="compact-value text-green">--</span></div>
+            <div class="bench-wrap">
+                <div class="bench-scroll" id="bench-scroll" onscroll="verificarSetaBenchmark()">
+                    <div class="bench-empty">Sem dados no per&#237;odo selecionado</div>
                 </div>
-                <div class="card" style="margin-bottom:0;border-top:4px solid var(--orange);padding:10px;">
-                    <div style="font-size:.8rem;font-weight:bold;color:var(--orange);text-align:center;margin-bottom:10px;">GASOLINA</div>
-                    <div class="compact-box bg-gasolina-dark"><div class="compact-title" id="bench-gas-kml-title">M&#201;DIA (KM/L)</div><span id="gas-media" class="compact-value text-orange">--</span></div>
-                    <div class="compact-box bg-gasolina-dark"><div class="compact-title">CUSTO (R$/KM)</div><span id="gas-custo" class="compact-value text-orange">--</span></div>
-                    <div class="compact-box bg-gasolina-dark"><div class="compact-title" id="bench-gas-max-title">M&#193;XIMO (KM/L)</div><span id="gas-max" class="compact-value text-orange">--</span></div>
-                    <div class="compact-box bg-gasolina-dark" style="margin-bottom:0;"><div class="compact-title" id="bench-gas-min-title">M&#205;NIMO (KM/L)</div><span id="gas-min" class="compact-value text-orange">--</span></div>
-                </div>
+                <button class="bench-arrow" id="bench-arrow" onclick="scrollBenchmark()">&#8250;</button>
             </div>
 
             <div class="card" style="margin-top:10px;">
@@ -977,17 +985,11 @@ function calcularEstatisticas(arr){
 function atualizarInterface(){
     reprocessarCiclos(); calcularFatorMotor();
     document.getElementById('valSamples').innerText=ciclosFechados.length;
-    var sE=calcularEstatisticas(ciclosFechados.filter(function(i){return i.combustivelReal.includes('Etanol');}));
-    var sG=calcularEstatisticas(ciclosFechados.filter(function(i){return i.combustivelReal.includes('Gasolina');}));
-    document.getElementById('et-media').innerText=sE.kmlM;document.getElementById('et-custo').innerText=sE.rskm;
-    document.getElementById('et-max').innerText=sE.kmlMax;document.getElementById('et-min').innerText=sE.kmlMin;
-    document.getElementById('gas-media').innerText=sG.kmlM;document.getElementById('gas-custo').innerText=sG.rskm;
-    document.getElementById('gas-max').innerText=sG.kmlMax;document.getElementById('gas-min').innerText=sG.kmlMin;
     mediaRsKmGeralParaAlerta=ciclosFechados.length>0?ciclosFechados.reduce(function(a,b){return a+b.custoPorKm;},0)/ciclosFechados.length:0;
-    // Melhor performance — sempre global
+    // Melhor performance — sempre global (histórico total, sem filtro)
     var grupos={};
     ciclosFechados.forEach(function(c){
-        var label=c.combustivelReal.includes('Etanol')?'Etanol':c.combustivelReal.includes('Gasolina')?'Gasolina':c.combustivelReal.split(' ')[0];
+        var label=labelCombustivel(c.combustivelReal);
         if(!grupos[label])grupos[label]={soma:0,n:0,cor:corCombustivel(c.combustivelReal)};
         grupos[label].soma+=c.custoPorKm; grupos[label].n++;
     });
@@ -1004,15 +1006,8 @@ function atualizarInterface(){
         badge.style.color=melhorCor; badge.style.borderColor=melhorCor; badge.style.background=melhorCor+'22';
         document.getElementById('stat-melhor-kml').innerText='R$ '+melhorCusto.toFixed(2).replace('.',',')+'/km';
     } else { cardPerf.style.display='none'; }
-    // Análise de desempenho com filtro de período
+    // Análise de desempenho + benchmark com filtros
     atualizarDesempenho();
-    var _vb=veiculos.find(function(x){return x.id===veiculoAtualId;});
-    var _unid=_vb?unidadeRendimento(_vb.combustivelPref):'km/L';
-    var _unidUp=_unid.toUpperCase();
-    ['bench-et-kml-title','bench-et-max-title','bench-et-min-title','bench-gas-kml-title','bench-gas-max-title','bench-gas-min-title'].forEach(function(id){
-        var el=document.getElementById(id);if(!el)return;
-        el.innerText=el.innerText.replace(/KM\/L|KM\/KWH/,_unidUp);
-    });
     renderizarHistoricoVisual();
 }
 
@@ -1328,30 +1323,42 @@ function atualizarUIParaVeiculo() {
     // Fator Motor — oculta para diesel/gnv/elétrico
     var cardFator = document.querySelector('#aba-comparador .card:nth-child(2)');
     if (cardFator) cardFator.style.display = ehEtGas ? '' : 'none';
-
-    // Benchmark — atualiza título das colunas para combustível atual
-    var labels = ['bench-et-kml-title','bench-et-max-title','bench-et-min-title',
-                  'bench-gas-kml-title','bench-gas-max-title','bench-gas-min-title'];
-    labels.forEach(function(id) {
-        var el = document.getElementById(id);
-        if (!el) return;
-        var txt = el.innerText;
-        el.innerText = txt.replace('KM/L', unid.toUpperCase()).replace('KM/KWH', unid.toUpperCase());
-    });
-
-    // Painel benchmark — renomeia colunas ETANOL/GASOLINA para nomes genéricos
-    if (!ehEtGas) {
-        var panEt  = document.querySelector('#aba-registro .card[style*="green"] div:first-child');
-        var panGas = document.querySelector('#aba-registro .card[style*="orange"] div:first-child');
-        // simpler: use the fixed ids on the column headers
-    }
 }
 
 // ════════════════════════════════════════════════════════
 //  PERÍODO & SIMULADOR DE COMBUSTÍVEL
 // ════════════════════════════════════════════════════════
-var periodoAtivo = 'mes-atual';
+var periodoAtivo = 'total';
+var combustivelAtivo = 'todos';
 var simCombustivelAtivo = null;
+
+// Normaliza o nome do combustível para uso em filtros e labels
+function labelCombustivel(s) {
+    if (!s) return 'Outro';
+    if (s.includes('Etanol')) return 'Etanol';
+    if (s.includes('Gasolina')) return 'Gasolina';
+    var sl = s.toLowerCase();
+    if (sl.includes('diesel')) return 'Diesel';
+    if (sl.includes('gnv')) return 'GNV';
+    if (sl.includes('el\u00e9tri') || sl.includes('eletri')) return 'El\u00e9trico';
+    return s.split(' ')[0];
+}
+
+// Cor de texto CSS pelo tipo de combustível
+function classeCorCombustivel(label) {
+    if (label === 'Etanol') return 'text-green';
+    if (label === 'Gasolina') return 'text-orange';
+    if (label === 'Diesel') return 'text-blue';
+    if (label === 'GNV') return 'text-yellow';
+    return 'text-purple';
+}
+
+// Classe de fundo para compact-box
+function classeBgCombustivel(label) {
+    if (label === 'Etanol') return 'bg-etanol-dark';
+    if (label === 'Gasolina') return 'bg-gasolina-dark';
+    return '';
+}
 
 function selecionarPeriodo(p) {
     periodoAtivo = p;
@@ -1360,6 +1367,20 @@ function selecionarPeriodo(p) {
     });
     var datas = document.getElementById('periodo-datas');
     if (datas) datas.classList.toggle('visivel', p === 'periodo');
+    atualizarDesempenho();
+}
+
+function selecionarCombustivel(c) {
+    combustivelAtivo = c;
+    document.querySelectorAll('.comb-pill').forEach(function(el) {
+        el.classList.toggle('ativo', el.dataset.c === c);
+        if (el.dataset.c === c && c !== 'todos') {
+            var cor = el.dataset.cor || '#60a5fa';
+            el.style.color = cor; el.style.borderColor = cor; el.style.background = cor + '22';
+        } else if (el.dataset.c !== 'todos') {
+            el.style.color = ''; el.style.borderColor = ''; el.style.background = '';
+        }
+    });
     atualizarDesempenho();
 }
 
@@ -1380,7 +1401,7 @@ function obterJanela() {
         return { de: de ? new Date(de + 'T00:00:00') : null,
                  ate: ate ? new Date(ate + 'T23:59:59') : null };
     }
-    return { de: null, ate: null }; // total
+    return { de: null, ate: null };
 }
 
 function filtrarHistPeriodo(hist, janela) {
@@ -1414,40 +1435,133 @@ function labelPeriodoAtivo() {
     return 'PERÍODO SELECIONADO';
 }
 
+function atualizarCombPills(ciclosF) {
+    var container = document.getElementById('comb-pills');
+    if (!container) return;
+    var tipos = {}, ordem = [];
+    ciclosF.forEach(function(c) {
+        var l = labelCombustivel(c.combustivelReal);
+        if (!tipos[l]) { tipos[l] = corCombustivel(c.combustivelReal); ordem.push(l); }
+    });
+    // Se o combustível ativo sumiu do período, volta para 'todos'
+    if (combustivelAtivo !== 'todos' && !tipos[combustivelAtivo]) combustivelAtivo = 'todos';
+    // Não mostra pills se há só 1 tipo (sem necessidade de filtrar)
+    if (ordem.length <= 1) { container.innerHTML = ''; return; }
+    var html = '<button class="comb-pill' + (combustivelAtivo === 'todos' ? ' ativo' : '') + '" data-c="todos" onclick="selecionarCombustivel(\'todos\')">Todos</button>';
+    ordem.forEach(function(l) {
+        var cor = tipos[l];
+        var ativo = combustivelAtivo === l;
+        html += '<button class="comb-pill' + (ativo ? ' ativo' : '') + '" data-c="' + l + '" data-cor="' + cor + '"'
+            + (ativo ? ' style="color:' + cor + ';border-color:' + cor + ';background:' + cor + '22;"' : '')
+            + ' onclick="selecionarCombustivel(\'' + l + '\')">' + l + '</button>';
+    });
+    container.innerHTML = html;
+}
+
 function atualizarDesempenho() {
     var janela = obterJanela();
     var histF = filtrarHistPeriodo(historicoBruto, janela);
     var ciclosF = filtrarCiclosPeriodo(ciclosFechados, janela);
 
-    var lbl = document.getElementById('label-periodo-atual');
-    if (lbl) lbl.innerText = labelPeriodoAtivo();
+    // Atualiza pills de combustível com base no período
+    atualizarCombPills(ciclosF);
 
-    // Linha 1: métricas de ritmo (ciclos filtrados)
-    var cd = ciclosF.filter(function(c) { return c.diasEntreCiclos && c.kmPorDia; });
+    // Aplica filtro de combustível em cascata
+    var ciclosFinal = ciclosF, histFinal = histF;
+    if (combustivelAtivo !== 'todos') {
+        ciclosFinal = ciclosF.filter(function(c) { return labelCombustivel(c.combustivelReal) === combustivelAtivo; });
+        histFinal = histF.filter(function(item) { return labelCombustivel(item.tipoAbastecido) === combustivelAtivo; });
+    }
+
+    // Label dinâmico
+    var lbl = document.getElementById('label-periodo-atual');
+    if (lbl) {
+        var sufixo = combustivelAtivo !== 'todos' ? ' · ' + combustivelAtivo.toUpperCase() : '';
+        lbl.innerText = labelPeriodoAtivo() + sufixo;
+    }
+
+    // Linha 1: métricas de ritmo
+    var cd = ciclosFinal.filter(function(c) { return c.diasEntreCiclos && c.kmPorDia; });
     if (cd.length > 0) {
         var kd = cd.reduce(function(a,b) { return a+b.kmPorDia; }, 0) / cd.length;
         var dm = cd.reduce(function(a,b) { return a+b.diasEntreCiclos; }, 0) / cd.length;
-        var cg = ciclosF.reduce(function(a,b) { return a+b.custoPorKm; }, 0) / ciclosF.length;
+        var cg = ciclosFinal.reduce(function(a,b) { return a+b.custoPorKm; }, 0) / ciclosFinal.length;
         document.getElementById('stat-kmpdia').innerText = kd.toFixed(1) + ' km';
         document.getElementById('stat-rsdia').innerText = 'R$ ' + (kd*cg).toFixed(2).replace('.',',');
         document.getElementById('stat-diasmed').innerText = dm.toFixed(1) + ' d';
     } else {
-        document.getElementById('stat-kmpdia').innerText = '--';
-        document.getElementById('stat-rsdia').innerText = '--';
-        document.getElementById('stat-diasmed').innerText = '--';
+        ['stat-kmpdia','stat-rsdia','stat-diasmed'].forEach(function(id) { document.getElementById(id).innerText = '--'; });
     }
 
-    // Linha 2: gasto no período (filtrado) + acumulado total (sempre global)
-    var gastoP = histF.reduce(function(a,b) { return a + b.valorTotal; }, 0);
+    // Linha 2: gastos
+    var gastoP = histFinal.reduce(function(a,b) { return a + b.valorTotal; }, 0);
     document.getElementById('stat-gasto-mes-atual').innerText = gastoP > 0 ? 'R$ ' + gastoP.toFixed(2).replace('.',',') : '--';
     var acum = historicoBruto.reduce(function(a,b) { return a + b.valorTotal; }, 0);
     document.getElementById('stat-acumulado').innerText = acum > 0 ? 'R$ ' + acum.toFixed(2).replace('.',',') : '--';
 
+    // Benchmark dinâmico (usa ciclosFinal — respeita período + combustível)
+    renderizarBenchmarkDinamico(ciclosFinal);
+
     // Simulador
-    renderizarSimulador(ciclosF, histF);
+    renderizarSimulador(ciclosFinal, histFinal);
 }
 
-function renderizarSimulador(ciclosF, histF) {
+function renderizarBenchmarkDinamico(ciclosF) {
+    var container = document.getElementById('bench-scroll');
+    if (!container) return;
+    var _vb = veiculos.find(function(x) { return x.id === veiculoAtualId; });
+    var unid = _vb ? unidadeRendimento(_vb.combustivelPref) : 'km/L';
+    // Agrupa por tipo
+    var grupos = {}, ordem = [];
+    ciclosF.forEach(function(c) {
+        var l = labelCombustivel(c.combustivelReal);
+        if (!grupos[l]) { grupos[l] = { itens: [], cor: corCombustivel(c.combustivelReal) }; ordem.push(l); }
+        grupos[l].itens.push(c);
+    });
+    if (ordem.length === 0) {
+        container.innerHTML = '<div class="bench-empty">Sem ciclos no per\u00edodo selecionado</div>';
+        verificarSetaBenchmark(); return;
+    }
+    container.innerHTML = ordem.map(function(label) {
+        var g = grupos[label];
+        var s = calcularEstatisticas(g.itens);
+        var cor = g.cor;
+        var corCls = classeCorCombustivel(label);
+        var bgCls = classeBgCombustivel(label);
+        var unidU = unid.toUpperCase();
+        return '<div class="bench-card-item" style="border-top-color:' + cor + ';">'
+            + '<div style="font-size:.8rem;font-weight:bold;color:' + cor + ';text-align:center;margin-bottom:10px;">' + label.toUpperCase() + ' <span style="font-size:.6rem;font-weight:400;color:#555;">(' + g.itens.length + ' ciclos)</span></div>'
+            + '<div class="compact-box ' + bgCls + '"><div class="compact-title">M\u00c9DIA (' + unidU + ')</div><span class="compact-value ' + corCls + '">' + s.kmlM + '</span></div>'
+            + '<div class="compact-box ' + bgCls + '"><div class="compact-title">CUSTO (R$/KM)</div><span class="compact-value ' + corCls + '">' + s.rskm + '</span></div>'
+            + '<div class="compact-box ' + bgCls + '"><div class="compact-title">M\u00c1XIMO (' + unidU + ')</div><span class="compact-value ' + corCls + '">' + s.kmlMax + '</span></div>'
+            + '<div class="compact-box ' + bgCls + '" style="margin-bottom:0"><div class="compact-title">M\u00cdNIMO (' + unidU + ')</div><span class="compact-value ' + corCls + '">' + s.kmlMin + '</span></div>'
+            + '</div>';
+    }).join('');
+    verificarSetaBenchmark();
+}
+
+function verificarSetaBenchmark() {
+    var scroll = document.getElementById('bench-scroll');
+    var arrow = document.getElementById('bench-arrow');
+    if (!scroll || !arrow) return;
+    setTimeout(function() {
+        var hasOverflow = scroll.scrollWidth > scroll.clientWidth + 4;
+        var atEnd = scroll.scrollLeft + scroll.clientWidth >= scroll.scrollWidth - 4;
+        arrow.classList.toggle('visivel', hasOverflow && !atEnd);
+    }, 60);
+}
+
+function scrollBenchmark() {
+    var scroll = document.getElementById('bench-scroll');
+    if (!scroll) return;
+    var card = scroll.querySelector('.bench-card-item');
+    var step = card ? card.offsetWidth + 10 : 170;
+    scroll.scrollBy({ left: step, behavior: 'smooth' });
+    setTimeout(verificarSetaBenchmark, 400);
+}
+
+// ════════════════════════════════════════════════════════
+//  BACKUP & RESTAURAÇÃO
     var card = document.getElementById('card-simulador');
     if (!card) return;
 
