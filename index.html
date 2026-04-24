@@ -282,7 +282,13 @@
 
 
 <!-- TELA 0: SPLASH -->
-<div id="tela-splash" class="tela" style="display:none;"></div>
+<div id="tela-splash" class="tela" style="background:#0d1117;align-items:center;justify-content:center;min-height:100vh;">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:16px;">
+        <img src="assets/icon-192.png" alt="VoltFuel" style="width:128px;height:128px;border-radius:28px;animation:splashPulse 0.6s ease-out;">
+        <div style="font-size:2rem;font-weight:800;color:#fff;letter-spacing:-.02em;animation:splashFade 0.8s ease-out;">VoltFuel</div>
+        <div style="font-size:.8rem;color:#555;animation:splashFade 0.8s ease-out;">v2.0.1</div>
+    </div>
+</div>
 <!-- TELA 1: GARAGEM -->
 <div id="tela-garagem" class="tela ativa">
     <div class="garagem-header">
@@ -672,7 +678,8 @@ function init(){
     try{ renderCorSelector(); }catch(e){}
     migrarDadosAntigos();
     veiculos=JSON.parse(localStorage.getItem(CHAVE_VEICULOS))||[];
-    splashFinalizado();
+    mostrarTela('splash');
+    setTimeout(splashFinalizado, 1800);
 }
 
 function migrarDadosAntigos(){
