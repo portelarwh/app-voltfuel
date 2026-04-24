@@ -159,6 +159,37 @@
         .legend-item{display:flex;align-items:center;gap:5px;font-size:.68rem;color:var(--text-muted)}
         .legend-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
 
+        /* PERÍODO */
+        .periodo-pills{display:flex;gap:5px;margin-bottom:8px}
+        .periodo-pill{flex:1;padding:7px 2px;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.02em;background:#2a2a2a;color:var(--text-muted);border:1px solid #333;border-radius:8px;cursor:pointer;text-align:center;transition:.15s}
+        .periodo-pill.ativo{background:#1e3a5f;color:#60a5fa;border-color:#1d4ed8}
+        .periodo-pill:active{transform:scale(.97)}
+        .periodo-datas{display:none;gap:8px;margin-bottom:8px}
+        .periodo-datas.visivel{display:flex}
+        .periodo-datas .input-group{flex:1}
+        .periodo-datas input[type="date"]{font-size:.85rem;padding:7px 6px}
+
+        /* SIMULADOR */
+        .sim-header{font-size:.6rem;color:var(--text-muted);font-weight:700;text-transform:uppercase;margin-bottom:8px}
+        .simulador-toggle{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+        .sim-pill{padding:5px 14px;font-size:.72rem;font-weight:700;background:#2a2a2a;color:var(--text-muted);border:1px solid #333;border-radius:20px;cursor:pointer;transition:.15s}
+        .sim-pill:active{transform:scale(.97)}
+        .sim-valores{background:#1a1a1a;border-radius:8px;padding:11px 12px;border:1px solid #2a2a2a}
+        .sim-valor-principal{font-size:1.4rem;font-weight:700;font-family:monospace;display:block}
+        .sim-rskm{font-size:.68rem;color:var(--text-muted);margin-top:3px}
+        .sim-comparativo{margin-top:9px;padding-top:8px;border-top:1px solid #2a2a2a;font-size:.73rem;color:var(--text-muted);line-height:1.6}
+        .sim-economia.positiva{color:#34d399;font-weight:700}
+        .sim-economia.negativa{color:#f87171;font-weight:700}
+
+        /* BACKUP */
+        .backup-row{display:flex;gap:8px;margin:8px 12px 0}
+        .btn-backup{flex:1;padding:13px 8px;background:transparent;border-radius:10px;font-size:.75rem;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.04em;transition:border-color .2s,color .2s,background .2s}
+        .btn-backup:active{transform:scale(.98)}
+        .btn-backup.exportar{border:1px solid #1d4ed8;color:#60a5fa}
+        .btn-backup.exportar:hover{background:rgba(96,165,250,.07)}
+        .btn-backup.importar{border:1px solid #065f46;color:#34d399}
+        .btn-backup.importar:hover{background:rgba(52,211,153,.07)}
+
         /* FOOTER */
         .app-footer{padding:16px 10px;text-align:center;font-size:13px;color:#9ca3af}
         .footer-content{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:center}
@@ -264,6 +295,12 @@
     <div id="lista-veiculos"></div>
     <button class="btn-add-veiculo" onclick="abrirModalVeiculo(false)">+ Adicionar veículo</button>
     <button id="btn-instalar-pwa" class="btn-instalar-pwa" onclick="instalarPWA()">&#128247; Instalar VoltFuel no celular</button>
+
+    <div class="backup-row">
+        <button class="btn-backup exportar" onclick="exportarBackup()">&#128230; Salvar Backup</button>
+        <button class="btn-backup importar" onclick="document.getElementById('input-importar-backup').click()">&#128229; Importar Backup</button>
+    </div>
+    <input type="file" id="input-importar-backup" accept=".json" style="display:none" onchange="importarBackup(event)">
 
     <footer class="app-footer" role="contentinfo" style="margin-top:auto;">
         <span class="footer-content">
@@ -378,19 +415,46 @@
             </div>
 
             <div class="card">
-                <div style="font-size:.8rem;font-weight:bold;color:var(--text-muted);margin-bottom:10px;text-align:center;">AN&#193;LISE DE DESEMPENHO</div>
+                <!-- Seletor de período -->
+                <div class="periodo-pills">
+                    <button class="periodo-pill ativo" data-p="mes-atual" onclick="selecionarPeriodo('mes-atual')">Mês atual</button>
+                    <button class="periodo-pill" data-p="mes-anterior" onclick="selecionarPeriodo('mes-anterior')">Mês ant.</button>
+                    <button class="periodo-pill" data-p="periodo" onclick="selecionarPeriodo('periodo')">Período</button>
+                    <button class="periodo-pill" data-p="total" onclick="selecionarPeriodo('total')">Total</button>
+                </div>
+                <div class="periodo-datas" id="periodo-datas">
+                    <div class="input-group"><label>De</label><input type="date" id="periodo-de" onchange="atualizarDesempenho()"></div>
+                    <div class="input-group"><label>At&#233;</label><input type="date" id="periodo-ate" onchange="atualizarDesempenho()"></div>
+                </div>
+                <!-- Título dinâmico -->
+                <div style="font-size:.8rem;font-weight:bold;color:var(--text-muted);margin-bottom:10px;text-align:center;">
+                    AN&#193;LISE DE DESEMPENHO &middot; <span id="label-periodo-atual" style="color:#60a5fa;">M&#202;S ATUAL</span>
+                </div>
+                <!-- Linha 1: métricas de ritmo -->
                 <div class="results-grid-3" style="margin-bottom:8px;">
                     <div class="result-box"><div class="result-title">KM/DIA M&#201;DIO</div><span id="stat-kmpdia" class="result-value text-blue">--</span></div>
                     <div class="result-box"><div class="result-title">R$/DIA M&#201;DIO</div><span id="stat-rsdia" class="result-value text-orange">--</span></div>
                     <div class="result-box"><div class="result-title">DIAS/ABAST.</div><span id="stat-diasmed" class="result-value text-yellow">--</span></div>
                 </div>
-                <div class="results-grid-3" style="margin-bottom:8px;">
-                    <div class="result-box"><div class="result-title">GASTO ESTIMADO/M&#202;S</div><span id="stat-gastomes" class="result-value">--</span></div>
-                    <div class="result-box"><div class="result-title">GASTO MÊS ATUAL</div><span id="stat-gasto-mes-atual" class="result-value text-green">--</span></div>
-                    <div class="result-box"><div class="result-title">GASTO ACUMULADO</div><span id="stat-acumulado" class="result-value text-purple">--</span></div>
+                <!-- Linha 2: gastos -->
+                <div class="results-grid" style="margin-bottom:8px;">
+                    <div class="result-box"><div class="result-title">GASTO NO PER&#205;ODO</div><span id="stat-gasto-mes-atual" class="result-value text-green">--</span></div>
+                    <div class="result-box"><div class="result-title">TOTAL ACUMULADO</div><span id="stat-acumulado" class="result-value text-purple">--</span></div>
                 </div>
+                <!-- Simulador de combustível -->
+                <div id="card-simulador" style="background:#1e1e2e;border-radius:8px;padding:10px;border:1px solid #2a2a4a;margin-bottom:8px;display:none;">
+                    <div class="sim-header">&#128161; Simulador de Combust&#237;vel</div>
+                    <div style="font-size:.68rem;color:#555;margin-bottom:8px;">Se tivesse abastecido s&#243; com:</div>
+                    <div id="sim-toggle" class="simulador-toggle"></div>
+                    <div class="sim-valores">
+                        <span id="sim-valor" class="sim-valor-principal">--</span>
+                        <div id="sim-rskm" class="sim-rskm"></div>
+                    </div>
+                    <div id="sim-comparativo" class="sim-comparativo"></div>
+                </div>
+                <!-- Melhor Performance — sempre global -->
                 <div id="card-melhor-perf" style="background:#2a2a2a;border-radius:8px;padding:10px;border:1px solid var(--border);display:none;">
-                    <div style="font-size:.6rem;color:var(--text-muted);font-weight:700;text-transform:uppercase;margin-bottom:6px;">&#127942; Melhor Performance</div>
+                    <div style="font-size:.6rem;color:var(--text-muted);font-weight:700;text-transform:uppercase;margin-bottom:6px;">&#127942; Melhor Performance (hist&#243;rico total)</div>
                     <div style="display:flex;align-items:center;gap:10px;">
                         <span id="stat-melhor-badge" style="font-size:.75rem;font-weight:700;padding:4px 10px;border-radius:20px;border:1px solid;">--</span>
                         <div>
@@ -920,39 +984,9 @@ function atualizarInterface(){
     document.getElementById('gas-media').innerText=sG.kmlM;document.getElementById('gas-custo').innerText=sG.rskm;
     document.getElementById('gas-max').innerText=sG.kmlMax;document.getElementById('gas-min').innerText=sG.kmlMin;
     mediaRsKmGeralParaAlerta=ciclosFechados.length>0?ciclosFechados.reduce(function(a,b){return a+b.custoPorKm;},0)/ciclosFechados.length:0;
-    var cd=ciclosFechados.filter(function(c){return c.diasEntreCiclos&&c.kmPorDia;});
-    if(cd.length>0){
-        var kd=cd.reduce(function(a,b){return a+b.kmPorDia;},0)/cd.length;
-        var dm=cd.reduce(function(a,b){return a+b.diasEntreCiclos;},0)/cd.length;
-        var cg=ciclosFechados.reduce(function(a,b){return a+b.custoPorKm;},0)/ciclosFechados.length;
-        var rsdia=kd*cg;
-        document.getElementById('stat-kmpdia').innerText=kd.toFixed(1)+' km';
-        document.getElementById('stat-rsdia').innerText='R$ '+rsdia.toFixed(2).replace('.',',');
-        document.getElementById('stat-diasmed').innerText=dm.toFixed(1)+' d';
-        document.getElementById('stat-gastomes').innerText='R$ '+(kd*cg*30).toFixed(2).replace('.',',');
-        document.getElementById('stat-gastomes').className='result-value text-green';
-    } else {
-        document.getElementById('stat-kmpdia').innerText='--';
-        document.getElementById('stat-rsdia').innerText='--';
-        document.getElementById('stat-diasmed').innerText='--';
-        document.getElementById('stat-gastomes').innerText='--';
-        document.getElementById('stat-gastomes').className='result-value';
-    }
-    // Gasto mês atual (calendar month)
-    var agora=new Date(), anoAtual=agora.getFullYear(), mesAtual=agora.getMonth();
-    var gastoMesAtual=historicoBruto.reduce(function(acc,item){
-        try{var p=item.data.split('/'),dt=new Date(p[2],p[1]-1,p[0]);
-            if(dt.getFullYear()===anoAtual&&dt.getMonth()===mesAtual)return acc+item.valorTotal;}
-        catch(e){}; return acc;
-    },0);
-    document.getElementById('stat-gasto-mes-atual').innerText=gastoMesAtual>0?'R$ '+gastoMesAtual.toFixed(2).replace('.',','):'--';
-    // Gasto acumulado
-    var acum=historicoBruto.reduce(function(a,b){return a+b.valorTotal;},0);
-    document.getElementById('stat-acumulado').innerText=acum>0?'R$ '+acum.toFixed(2).replace('.',','):'--';
-    // Melhor performance
+    // Melhor performance — sempre global
     var grupos={};
     ciclosFechados.forEach(function(c){
-        var base=tipoBase(c.combustivelReal);
         var label=c.combustivelReal.includes('Etanol')?'Etanol':c.combustivelReal.includes('Gasolina')?'Gasolina':c.combustivelReal.split(' ')[0];
         if(!grupos[label])grupos[label]={soma:0,n:0,cor:corCombustivel(c.combustivelReal)};
         grupos[label].soma+=c.custoPorKm; grupos[label].n++;
@@ -970,6 +1004,8 @@ function atualizarInterface(){
         badge.style.color=melhorCor; badge.style.borderColor=melhorCor; badge.style.background=melhorCor+'22';
         document.getElementById('stat-melhor-kml').innerText='R$ '+melhorCusto.toFixed(2).replace('.',',')+'/km';
     } else { cardPerf.style.display='none'; }
+    // Análise de desempenho com filtro de período
+    atualizarDesempenho();
     var _vb=veiculos.find(function(x){return x.id===veiculoAtualId;});
     var _unid=_vb?unidadeRendimento(_vb.combustivelPref):'km/L';
     var _unidUp=_unid.toUpperCase();
@@ -1309,6 +1345,275 @@ function atualizarUIParaVeiculo() {
         var panGas = document.querySelector('#aba-registro .card[style*="orange"] div:first-child');
         // simpler: use the fixed ids on the column headers
     }
+}
+
+// ════════════════════════════════════════════════════════
+//  PERÍODO & SIMULADOR DE COMBUSTÍVEL
+// ════════════════════════════════════════════════════════
+var periodoAtivo = 'mes-atual';
+var simCombustivelAtivo = null;
+
+function selecionarPeriodo(p) {
+    periodoAtivo = p;
+    document.querySelectorAll('.periodo-pill').forEach(function(el) {
+        el.classList.toggle('ativo', el.dataset.p === p);
+    });
+    var datas = document.getElementById('periodo-datas');
+    if (datas) datas.classList.toggle('visivel', p === 'periodo');
+    atualizarDesempenho();
+}
+
+function obterJanela() {
+    var agora = new Date();
+    if (periodoAtivo === 'mes-atual') {
+        return { de: new Date(agora.getFullYear(), agora.getMonth(), 1),
+                 ate: new Date(agora.getFullYear(), agora.getMonth() + 1, 0, 23, 59, 59) };
+    }
+    if (periodoAtivo === 'mes-anterior') {
+        var m = agora.getMonth() - 1, y = agora.getFullYear();
+        if (m < 0) { m = 11; y--; }
+        return { de: new Date(y, m, 1), ate: new Date(y, m + 1, 0, 23, 59, 59) };
+    }
+    if (periodoAtivo === 'periodo') {
+        var de = document.getElementById('periodo-de').value;
+        var ate = document.getElementById('periodo-ate').value;
+        return { de: de ? new Date(de + 'T00:00:00') : null,
+                 ate: ate ? new Date(ate + 'T23:59:59') : null };
+    }
+    return { de: null, ate: null }; // total
+}
+
+function filtrarHistPeriodo(hist, janela) {
+    if (!janela.de && !janela.ate) return hist;
+    return hist.filter(function(item) {
+        try {
+            var dt = parseDataBR(item.data);
+            if (janela.de && dt < janela.de) return false;
+            if (janela.ate && dt > janela.ate) return false;
+            return true;
+        } catch(e) { return false; }
+    });
+}
+
+function filtrarCiclosPeriodo(ciclos, janela) {
+    if (!janela.de && !janela.ate) return ciclos;
+    return ciclos.filter(function(c) {
+        try {
+            var dt = parseDataBR(c.dataFechamento);
+            if (janela.de && dt < janela.de) return false;
+            if (janela.ate && dt > janela.ate) return false;
+            return true;
+        } catch(e) { return false; }
+    });
+}
+
+function labelPeriodoAtivo() {
+    if (periodoAtivo === 'mes-atual') return 'MÊS ATUAL';
+    if (periodoAtivo === 'mes-anterior') return 'MÊS ANTERIOR';
+    if (periodoAtivo === 'total') return 'HISTÓRICO TOTAL';
+    return 'PERÍODO SELECIONADO';
+}
+
+function atualizarDesempenho() {
+    var janela = obterJanela();
+    var histF = filtrarHistPeriodo(historicoBruto, janela);
+    var ciclosF = filtrarCiclosPeriodo(ciclosFechados, janela);
+
+    var lbl = document.getElementById('label-periodo-atual');
+    if (lbl) lbl.innerText = labelPeriodoAtivo();
+
+    // Linha 1: métricas de ritmo (ciclos filtrados)
+    var cd = ciclosF.filter(function(c) { return c.diasEntreCiclos && c.kmPorDia; });
+    if (cd.length > 0) {
+        var kd = cd.reduce(function(a,b) { return a+b.kmPorDia; }, 0) / cd.length;
+        var dm = cd.reduce(function(a,b) { return a+b.diasEntreCiclos; }, 0) / cd.length;
+        var cg = ciclosF.reduce(function(a,b) { return a+b.custoPorKm; }, 0) / ciclosF.length;
+        document.getElementById('stat-kmpdia').innerText = kd.toFixed(1) + ' km';
+        document.getElementById('stat-rsdia').innerText = 'R$ ' + (kd*cg).toFixed(2).replace('.',',');
+        document.getElementById('stat-diasmed').innerText = dm.toFixed(1) + ' d';
+    } else {
+        document.getElementById('stat-kmpdia').innerText = '--';
+        document.getElementById('stat-rsdia').innerText = '--';
+        document.getElementById('stat-diasmed').innerText = '--';
+    }
+
+    // Linha 2: gasto no período (filtrado) + acumulado total (sempre global)
+    var gastoP = histF.reduce(function(a,b) { return a + b.valorTotal; }, 0);
+    document.getElementById('stat-gasto-mes-atual').innerText = gastoP > 0 ? 'R$ ' + gastoP.toFixed(2).replace('.',',') : '--';
+    var acum = historicoBruto.reduce(function(a,b) { return a + b.valorTotal; }, 0);
+    document.getElementById('stat-acumulado').innerText = acum > 0 ? 'R$ ' + acum.toFixed(2).replace('.',',') : '--';
+
+    // Simulador
+    renderizarSimulador(ciclosF, histF);
+}
+
+function renderizarSimulador(ciclosF, histF) {
+    var card = document.getElementById('card-simulador');
+    if (!card) return;
+
+    // Agrupa R$/km médio por tipo de combustível nos ciclos filtrados
+    var grupos = {};
+    ciclosF.forEach(function(c) {
+        var label = c.combustivelReal.includes('Etanol') ? 'Etanol'
+            : c.combustivelReal.includes('Gasolina') ? 'Gasolina'
+            : c.combustivelReal.split(' ')[0];
+        if (!grupos[label]) grupos[label] = { soma: 0, n: 0, cor: corCombustivel(c.combustivelReal) };
+        grupos[label].soma += c.custoPorKm;
+        grupos[label].n++;
+    });
+
+    var labels = Object.keys(grupos);
+    // Exige pelo menos 2 combustíveis diferentes para o simulador ter sentido
+    if (labels.length < 2) { card.style.display = 'none'; return; }
+    card.style.display = '';
+
+    // km totais no período (soma dos km rodados nos abastecimentos filtrados)
+    var kmTotal = histF.reduce(function(a,b) { return a + (b.kmRodado || 0); }, 0);
+    var gastoReal = histF.reduce(function(a,b) { return a + b.valorTotal; }, 0);
+    if (kmTotal <= 0) { card.style.display = 'none'; return; }
+
+    // Se o ativo não está disponível no período, reseta para o mais barato
+    if (!simCombustivelAtivo || !grupos[simCombustivelAtivo]) {
+        simCombustivelAtivo = labels.reduce(function(a,b) {
+            return (grupos[a].soma/grupos[a].n) < (grupos[b].soma/grupos[b].n) ? a : b;
+        });
+    }
+
+    // Pills de toggle
+    var pillsHTML = labels.map(function(l) {
+        var cor = grupos[l].cor;
+        var ativo = l === simCombustivelAtivo;
+        return '<button class="sim-pill' + (ativo ? ' ativo' : '') + '" '
+            + (ativo ? 'style="color:' + cor + ';border-color:' + cor + ';background:' + cor + '22;"' : '')
+            + ' onclick="simularCombustivel(\'' + l + '\')">' + l + '</button>';
+    }).join('');
+    document.getElementById('sim-toggle').innerHTML = pillsHTML;
+
+    // Cálculo
+    var rskm = grupos[simCombustivelAtivo].soma / grupos[simCombustivelAtivo].n;
+    var custoSim = kmTotal * rskm;
+    var diff = gastoReal - custoSim;
+    var pct = gastoReal > 0 ? Math.abs(diff / gastoReal * 100) : 0;
+    var cor = grupos[simCombustivelAtivo].cor;
+
+    document.getElementById('sim-valor').innerText = 'R$ ' + custoSim.toFixed(2).replace('.',',');
+    document.getElementById('sim-valor').style.color = cor;
+    document.getElementById('sim-rskm').innerText = 'R$ ' + rskm.toFixed(3).replace('.',',') + '/km · ' + kmTotal.toFixed(0) + ' km no período';
+
+    var compEl = document.getElementById('sim-comparativo');
+    if (gastoReal > 0) {
+        var sinal = diff >= 0 ? '▼ economia de' : '▲ custo extra de';
+        var cls = diff >= 0 ? 'positiva' : 'negativa';
+        compEl.innerHTML = 'gasto real: <b style="color:#ccc;">R$ ' + gastoReal.toFixed(2).replace('.',',') + '</b>'
+            + '&nbsp;&nbsp;<span class="sim-economia ' + cls + '">'
+            + sinal + ' R$ ' + Math.abs(diff).toFixed(2).replace('.',',')
+            + ' (' + pct.toFixed(0) + '%)</span>';
+    } else {
+        compEl.innerHTML = '';
+    }
+}
+
+function simularCombustivel(label) {
+    simCombustivelAtivo = label;
+    var janela = obterJanela();
+    renderizarSimulador(
+        filtrarCiclosPeriodo(ciclosFechados, janela),
+        filtrarHistPeriodo(historicoBruto, janela)
+    );
+}
+
+// ════════════════════════════════════════════════════════
+//  BACKUP & RESTAURAÇÃO
+// ════════════════════════════════════════════════════════
+var BACKUP_SCHEMA_VERSION = 1;
+
+function exportarBackup() {
+    var vs = JSON.parse(localStorage.getItem(CHAVE_VEICULOS)) || [];
+    if (vs.length === 0) {
+        alert('Nenhum dado para exportar. Cadastre ao menos um veículo antes de fazer o backup.');
+        return;
+    }
+    var historicos = {};
+    vs.forEach(function(v) {
+        historicos[v.id] = JSON.parse(localStorage.getItem('tc_hist_' + v.id)) || [];
+    });
+    var now = new Date();
+    var backup = {
+        app: 'VoltFuel',
+        version: '1.0.0',
+        backupVersion: BACKUP_SCHEMA_VERSION,
+        createdAt: now.toISOString(),
+        data: {
+            veiculos: vs,
+            historicos: historicos
+        }
+    };
+    var blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    var stamp = now.getFullYear() + '-'
+        + String(now.getMonth() + 1).padStart(2, '0') + '-'
+        + String(now.getDate()).padStart(2, '0');
+    a.href = url;
+    a.download = 'voltfuel-backup-' + stamp + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function importarBackup(event) {
+    var file = event.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        var backup;
+        try {
+            backup = JSON.parse(e.target.result);
+        } catch (err) {
+            alert('❌ Arquivo inválido. Selecione um backup .json gerado pelo VoltFuel.');
+            event.target.value = '';
+            return;
+        }
+        // Validação estrutural
+        if (!backup || backup.app !== 'VoltFuel' || !backup.data || !Array.isArray(backup.data.veiculos)) {
+            alert('❌ Este arquivo não é um backup compatível com o VoltFuel.');
+            event.target.value = '';
+            return;
+        }
+        var totalVeiculos = backup.data.veiculos.length;
+        var historicos = backup.data.historicos || {};
+        var totalAbast = Object.keys(historicos).reduce(function(acc, id) {
+            return acc + (Array.isArray(historicos[id]) ? historicos[id].length : 0);
+        }, 0);
+        var dataBackup = backup.createdAt
+            ? new Date(backup.createdAt).toLocaleString('pt-BR')
+            : 'data desconhecida';
+        var confirma = confirm(
+            '⚠️ Restaurar backup?\n\n' +
+            '📅 Data: ' + dataBackup + '\n' +
+            '🚗 Veículos: ' + totalVeiculos + '\n' +
+            '⛽ Abastecimentos: ' + totalAbast + '\n\n' +
+            'Os dados atuais serão SUBSTITUÍDOS.\nEsta ação não pode ser desfeita.'
+        );
+        if (!confirma) {
+            event.target.value = '';
+            return;
+        }
+        // Limpar dados atuais
+        var vsAtuais = JSON.parse(localStorage.getItem(CHAVE_VEICULOS)) || [];
+        vsAtuais.forEach(function(v) { localStorage.removeItem('tc_hist_' + v.id); });
+        localStorage.removeItem(CHAVE_VEICULOS);
+        // Restaurar
+        localStorage.setItem(CHAVE_VEICULOS, JSON.stringify(backup.data.veiculos));
+        Object.keys(historicos).forEach(function(id) {
+            localStorage.setItem('tc_hist_' + id, JSON.stringify(historicos[id]));
+        });
+        event.target.value = '';
+        alert('✅ Backup restaurado com sucesso! O app será recarregado.');
+        window.location.reload();
+    };
+    reader.readAsText(file);
 }
 
 init();
