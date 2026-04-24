@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'voltfuel-v2.0.2';
+const CACHE_NAME = 'voltfuel-v2.0.3';
 const ASSETS = [
     '/',
     '/index.html',
