@@ -284,7 +284,7 @@
 <!-- TELA 0: SPLASH -->
 <div id="tela-splash" class="tela" style="display:none;"></div>
 <!-- TELA 1: GARAGEM -->
-<div id="tela-garagem" class="tela">
+<div id="tela-garagem" class="tela ativa">
     <div class="garagem-header">
         <div>
             <div class="garagem-header-title">VoltFuel</div>
@@ -669,7 +669,7 @@ function splashFinalizado(){
 }
 
 function init(){
-    renderCorSelector();
+    try{ renderCorSelector(); }catch(e){}
     migrarDadosAntigos();
     veiculos=JSON.parse(localStorage.getItem(CHAVE_VEICULOS))||[];
     splashFinalizado();
