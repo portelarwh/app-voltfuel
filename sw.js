@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'voltfuel-v2.0.1b';
+const CACHE_NAME = 'voltfuel-v2.0.2';
 const ASSETS = [
     '/',
     '/index.html',
@@ -26,8 +26,6 @@ self.addEventListener('activate', function(event) {
                     .filter(function(key) { return key !== CACHE_NAME; })
                     .map(function(key) { return caches.delete(key); })
             );
-        }).then(function() {
-            return self.clients.claim();
         })
     );
 });
