@@ -4,8 +4,7 @@ const CACHE_NAME = 'voltfuel-v2.0.7';
 const ASSETS = [
     '/',
     '/index.html',
-    '/app.js',
-    '/styles.css',
+    '/manifest.json',
     '/assets/icon-192.png',
     '/assets/icon-512.png',
 ];
