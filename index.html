@@ -286,7 +286,7 @@
     <div style="display:flex;flex-direction:column;align-items:center;gap:16px;">
         <img src="assets/icon-192.png" alt="VoltFuel" style="width:128px;height:128px;border-radius:28px;animation:splashPulse 0.6s ease-out;">
         <div style="font-size:2rem;font-weight:800;color:#fff;letter-spacing:-.02em;animation:splashFade 0.8s ease-out;">VoltFuel</div>
-        <div id="app-version" style="font-size:.8rem;color:#555;animation:splashFade 0.8s ease-out;">v2.0.9</div>
+        <div id="app-version" style="font-size:.8rem;color:#555;animation:splashFade 0.8s ease-out;">v3.0.0</div>
     </div>
 </div>
 <!-- TELA 1: GARAGEM -->
@@ -341,6 +341,7 @@
         <div class="dashboard-veiculo-cor-dot" id="dash-cor-dot"></div>
         <div class="dashboard-veiculo-nome" id="dash-veiculo-nome"></div>
         <button class="btn-chart-icon" onclick="abrirModalVeiculo(true)" title="Editar veículo">&#9881;&#65039;</button>
+        <span id="dash-version" style="font-size:.7rem;color:#666;margin-left:6px;white-space:nowrap;"></span>
     </div>
     <div class="dashboard-body">
         <div class="tabs">
@@ -661,7 +662,7 @@
 <script>
 // ⚠️ VERSÃO DO APP — fonte única. Incremente a CADA mudança publicada
 // e replique o mesmo valor em sw.js (CACHE_NAME) para forçar a atualização.
-var APP_VERSION='2.0.9';
+var APP_VERSION='3.0.0';
 var CORES=['#28a745','#007bff','#fd7e14','#6f42c1','#dc3545','#ffc107','#17a2b8','#e83e8c'];
 var CHAVE_VEICULOS='tc_veiculos';
 var veiculos=[],veiculoAtualId=null,historicoBruto=[],ciclosFechados=[];
@@ -1179,7 +1180,10 @@ function desenhaSemDados(ctx,w,h,msg){
 }
 
 // Mostra a versão atual na splash a partir da fonte única (APP_VERSION)
-(function(){ var el=document.getElementById('app-version'); if(el) el.innerText='v'+APP_VERSION; })();
+(function(){
+    var el=document.getElementById('app-version'); if(el) el.innerText='v'+APP_VERSION;
+    var dv=document.getElementById('dash-version'); if(dv) dv.innerText='v'+APP_VERSION;
+})();
 
 // Indica se o usuário está editando algo (não interromper com reload automático)
 function usuarioOcupado() {
