@@ -1,6 +1,9 @@
 'use strict';
 
-const CACHE_NAME = 'voltfuel-v2.0.7';
+// ⚠️ VERSÃO DO APP — incremente a CADA mudança publicada.
+// Deve ser igual ao APP_VERSION definido em index.html.
+// Mudar este valor é o que força o navegador a baixar a nova versão.
+const CACHE_NAME = 'voltfuel-v2.0.8';
 const ASSETS = [
     '/',
     '/index.html',
@@ -25,7 +28,7 @@ self.addEventListener('activate', function(event) {
                     .filter(function(key) { return key !== CACHE_NAME; })
                     .map(function(key) { return caches.delete(key); })
             );
-        })
+        }).then(function() { return self.clients.claim(); })
     );
 });
 
