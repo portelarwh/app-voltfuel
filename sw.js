@@ -3,7 +3,7 @@
 // ⚠️ VERSÃO DO APP — incremente a CADA mudança publicada.
 // Deve ser igual ao APP_VERSION definido em index.html.
 // Mudar este valor é o que força o navegador a baixar a nova versão.
-const CACHE_NAME = 'voltfuel-v2.0.9';
+const CACHE_NAME = 'voltfuel-v3.0.0';
 const ASSETS = [
     '/',
     '/index.html',
