@@ -286,7 +286,7 @@
     <div style="display:flex;flex-direction:column;align-items:center;gap:16px;">
         <img src="assets/icon-192.png" alt="VoltFuel" style="width:128px;height:128px;border-radius:28px;animation:splashPulse 0.6s ease-out;">
         <div style="font-size:2rem;font-weight:800;color:#fff;letter-spacing:-.02em;animation:splashFade 0.8s ease-out;">VoltFuel</div>
-        <div id="app-version" style="font-size:.8rem;color:#555;animation:splashFade 0.8s ease-out;">v3.0.0</div>
+        <div id="app-version" style="font-size:.8rem;color:#555;animation:splashFade 0.8s ease-out;">v3.0.1</div>
     </div>
 </div>
 <!-- TELA 1: GARAGEM -->
@@ -662,7 +662,7 @@
 <script>
 // ⚠️ VERSÃO DO APP — fonte única. Incremente a CADA mudança publicada
 // e replique o mesmo valor em sw.js (CACHE_NAME) para forçar a atualização.
-var APP_VERSION='3.0.0';
+var APP_VERSION='3.0.1';
 var CORES=['#28a745','#007bff','#fd7e14','#6f42c1','#dc3545','#ffc107','#17a2b8','#e83e8c'];
 var CHAVE_VEICULOS='tc_veiculos';
 var veiculos=[],veiculoAtualId=null,historicoBruto=[],ciclosFechados=[];
@@ -1558,11 +1558,11 @@ function renderizarBenchmarkDinamico(ciclosF) {
         return '<div class="bench-card-item" style="border-top-color:' + cor + ';">'
             + '<div style="font-size:.8rem;font-weight:bold;color:' + cor + ';text-align:center;margin-bottom:10px;">' + label.toUpperCase() + ' <span style="font-size:.6rem;font-weight:400;color:#555;">(' + g.itens.length + ' ciclos)</span></div>'
             + '<div class="compact-box ' + bgCls + '"><div class="compact-title">M\u00c9DIA (' + unidU + ')</div><span class="compact-value ' + corCls + '">' + s.kmlM + '</span></div>'
+            + '<div class="compact-box ' + bgCls + '"><div class="compact-title">M\u00c1XIMO (' + unidU + ')</div><span class="compact-value ' + corCls + '">' + s.kmlMax + '</span></div>'
+            + '<div class="compact-box ' + bgCls + '"><div class="compact-title">M\u00cdNIMO (' + unidU + ')</div><span class="compact-value ' + corCls + '">' + s.kmlMin + '</span></div>'
             + '<div class="compact-box ' + bgCls + '"><div class="compact-title">CUSTO (R$/KM)</div><span class="compact-value ' + corCls + '">' + s.rskm + '</span></div>'
             + '<div class="compact-box ' + bgCls + '"><div class="compact-title">VALOR/L (\u00daLTIMO)</div><span class="compact-value ' + corCls + '">' + s.rsLitroUlt + '</span></div>'
-            + '<div class="compact-box ' + bgCls + '"><div class="compact-title">VALOR/L (M\u00c9DIA)</div><span class="compact-value ' + corCls + '">' + s.rsLitroMed + '</span></div>'
-            + '<div class="compact-box ' + bgCls + '"><div class="compact-title">M\u00c1XIMO (' + unidU + ')</div><span class="compact-value ' + corCls + '">' + s.kmlMax + '</span></div>'
-            + '<div class="compact-box ' + bgCls + '" style="margin-bottom:0"><div class="compact-title">M\u00cdNIMO (' + unidU + ')</div><span class="compact-value ' + corCls + '">' + s.kmlMin + '</span></div>'
+            + '<div class="compact-box ' + bgCls + '" style="margin-bottom:0"><div class="compact-title">VALOR/L (M\u00c9DIO)</div><span class="compact-value ' + corCls + '">' + s.rsLitroMed + '</span></div>'
             + '</div>';
     }).join('');
     verificarSetaBenchmark();
