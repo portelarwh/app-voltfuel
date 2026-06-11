@@ -286,7 +286,7 @@
     <div style="display:flex;flex-direction:column;align-items:center;gap:16px;">
         <img src="assets/icon-192.png" alt="VoltFuel" style="width:128px;height:128px;border-radius:28px;animation:splashPulse 0.6s ease-out;">
         <div style="font-size:2rem;font-weight:800;color:#fff;letter-spacing:-.02em;animation:splashFade 0.8s ease-out;">VoltFuel</div>
-        <div style="font-size:.8rem;color:#555;animation:splashFade 0.8s ease-out;">v2.0.7</div>
+        <div id="app-version" style="font-size:.8rem;color:#555;animation:splashFade 0.8s ease-out;">v2.0.8</div>
     </div>
 </div>
 <!-- TELA 1: GARAGEM -->
@@ -659,6 +659,9 @@
 </div>
 
 <script>
+// ⚠️ VERSÃO DO APP — fonte única. Incremente a CADA mudança publicada
+// e replique o mesmo valor em sw.js (CACHE_NAME) para forçar a atualização.
+var APP_VERSION='2.0.8';
 var CORES=['#28a745','#007bff','#fd7e14','#6f42c1','#dc3545','#ffc107','#17a2b8','#e83e8c'];
 var CHAVE_VEICULOS='tc_veiculos';
 var veiculos=[],veiculoAtualId=null,historicoBruto=[],ciclosFechados=[];
@@ -1175,30 +1178,57 @@ function desenhaSemDados(ctx,w,h,msg){
     msg.split('\n').forEach(function(l,i){ctx.fillText(l,w/2,h/2-8+i*20);});
 }
 
+// Mostra a versão atual na splash a partir da fonte única (APP_VERSION)
+(function(){ var el=document.getElementById('app-version'); if(el) el.innerText='v'+APP_VERSION; })();
+
+// Indica se o usuário está editando algo (não interromper com reload automático)
+function usuarioOcupado() {
+    return ['modal-veiculo','modal-edicao'].some(function(id){
+        var m = document.getElementById(id);
+        return m && m.classList.contains('active');
+    });
+}
+
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', function() {
         navigator.serviceWorker.register('sw.js').then(function(reg) {
+
+            // Busca ativamente pela versão mais atual: ao abrir, ao voltar
+            // o foco para o app e periodicamente.
+            function checarAtualizacao() { try { reg.update(); } catch (e) {} }
+            checarAtualizacao();
+            setInterval(checarAtualizacao, 30 * 60 * 1000); // a cada 30 min
+            document.addEventListener('visibilitychange', function() {
+                if (!document.hidden) checarAtualizacao();
+            });
+
+            // Aplica a nova versão automaticamente (ou mostra o banner se o
+            // usuário estiver no meio de uma edição).
+            function tratarNovoSW(worker) {
+                window._newSW = worker;
+                if (usuarioOcupado()) {
+                    document.getElementById('update-banner').classList.add('visible');
+                } else {
+                    worker.postMessage({ type: 'SKIP_WAITING' });
+                }
+            }
 
             // Detecta novo SW instalando
             reg.addEventListener('updatefound', function() {
                 var newWorker = reg.installing;
                 newWorker.addEventListener('statechange', function() {
-                    // Novo SW pronto e esperando — mostra banner
                     if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                        document.getElementById('update-banner').classList.add('visible');
-                        // Guarda referência para ativar depois
-                        window._newSW = newWorker;
+                        tratarNovoSW(newWorker);
                     }
                 });
             });
 
-            // Verifica atualização imediatamente ao abrir o app
+            // Novo SW já esperando ao abrir o app
             if (reg.waiting && navigator.serviceWorker.controller) {
-                document.getElementById('update-banner').classList.add('visible');
-                window._newSW = reg.waiting;
+                tratarNovoSW(reg.waiting);
             }
 
-            // Detecta quando o SW novo assume e recarrega
+            // Quando o SW novo assume, recarrega para a versão mais atual
             navigator.serviceWorker.addEventListener('controllerchange', function() {
                 if (!window._swReloading) {
                     window._swReloading = true;
@@ -1659,7 +1689,7 @@ function exportarBackup() {
     var now = new Date();
     var backup = {
         app: 'VoltFuel',
-        version: '2.0.7',
+        version: APP_VERSION,
         backupVersion: BACKUP_SCHEMA_VERSION,
         createdAt: now.toISOString(),
         data: {
