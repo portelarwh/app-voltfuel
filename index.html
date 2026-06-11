@@ -957,12 +957,18 @@ function calcularFatorMotor(){
 }
 
 function calcularEstatisticas(arr){
-    if(arr.length===0)return{kmlM:'--',kmlMax:'--',kmlMin:'--',rskm:'--'};
+    if(arr.length===0)return{kmlM:'--',kmlMax:'--',kmlMin:'--',rskm:'--',rsLitroMed:'--',rsLitroUlt:'--'};
     var v=arr.map(function(a){return a.kmPorLitro;});
+    var precos=arr.map(function(a){return a.precoBase;}).filter(function(p){return typeof p==='number'&&!isNaN(p);});
+    var medPreco=precos.length?precos.reduce(function(a,b){return a+b;},0)/precos.length:null;
+    // arr está ordenado do ciclo mais recente para o mais antigo, então arr[0] é o último abastecimento
+    var ultPreco=(arr[0]&&typeof arr[0].precoBase==='number'&&!isNaN(arr[0].precoBase))?arr[0].precoBase:null;
     return{kmlM:(v.reduce(function(a,b){return a+b;},0)/arr.length).toFixed(2).replace('.',','),
         kmlMax:Math.max.apply(null,v).toFixed(2).replace('.',','),
         kmlMin:Math.min.apply(null,v).toFixed(2).replace('.',','),
-        rskm:'R$ '+(arr.reduce(function(a,b){return a+b.custoPorKm;},0)/arr.length).toFixed(2).replace('.',',')};
+        rskm:'R$ '+(arr.reduce(function(a,b){return a+b.custoPorKm;},0)/arr.length).toFixed(2).replace('.',','),
+        rsLitroMed:medPreco!==null?'R$ '+medPreco.toFixed(2).replace('.',','):'--',
+        rsLitroUlt:ultPreco!==null?'R$ '+ultPreco.toFixed(2).replace('.',','):'--'};
 }
 
 function atualizarInterface(){
@@ -1009,9 +1015,10 @@ function renderizarHistoricoVisual(){
         var corHex=corCombustivel(ciclo.combustivelReal);var cor=(corHex==='#28a745')?'text-green':(corHex==='#fd7e14'?'text-orange':(corHex==='#4dabf7'?'text-blue':(corHex==='#ffc107'?'text-yellow':'text-purple')));
         var tagA=isA?'<span class="badge badge-alerta">&#9888;&#65039; CUSTO ALTO</span>':'';
         var infoDias=ciclo.diasEntreCiclos?' \u2022 '+ciclo.diasEntreCiclos+' dias \u2022 '+ciclo.kmPorDia.toFixed(1).replace('.',',')+' km/dia':'';
+        var precoLitro=(typeof ciclo.precoBase==='number'&&!isNaN(ciclo.precoBase))?' \u2022 R$ '+ciclo.precoBase.toFixed(2).replace('.',',')+'/L':'';
         row.innerHTML='<div class="history-data"><span class="history-kpi '+cor+'">'+ciclo.kmPorLitro.toFixed(2).replace('.',',')+' '+unidadeRendimento(ciclo.combustivelReal)+' '+tagA+'</span>'+
             '<span class="history-info">'+ciclo.dataFechamento+' \u2022 '+ciclo.combustivelReal+
-            ' <span class="badge badge-fechado" style="margin-left:5px;">R$ '+ciclo.custoPorKm.toFixed(2).replace('.',',')+'/km</span>'+infoDias+'</span></div>'+
+            ' <span class="badge badge-fechado" style="margin-left:5px;">R$ '+ciclo.custoPorKm.toFixed(2).replace('.',',')+'/km</span>'+precoLitro+infoDias+'</span></div>'+
             '<div class="btn-actions"><button class="btn-edit" onclick="abrirEdicao('+ciclo.id_referencia+')">&#9999;&#65039;</button>'+
             '<button class="btn-delete" onclick="excluirRegistroBruto('+ciclo.id_referencia+')">&#128465;</button></div>';
         list.appendChild(row);
@@ -1516,6 +1523,8 @@ function renderizarBenchmarkDinamico(ciclosF) {
             + '<div style="font-size:.8rem;font-weight:bold;color:' + cor + ';text-align:center;margin-bottom:10px;">' + label.toUpperCase() + ' <span style="font-size:.6rem;font-weight:400;color:#555;">(' + g.itens.length + ' ciclos)</span></div>'
             + '<div class="compact-box ' + bgCls + '"><div class="compact-title">M\u00c9DIA (' + unidU + ')</div><span class="compact-value ' + corCls + '">' + s.kmlM + '</span></div>'
             + '<div class="compact-box ' + bgCls + '"><div class="compact-title">CUSTO (R$/KM)</div><span class="compact-value ' + corCls + '">' + s.rskm + '</span></div>'
+            + '<div class="compact-box ' + bgCls + '"><div class="compact-title">VALOR/L (\u00daLTIMO)</div><span class="compact-value ' + corCls + '">' + s.rsLitroUlt + '</span></div>'
+            + '<div class="compact-box ' + bgCls + '"><div class="compact-title">VALOR/L (M\u00c9DIA)</div><span class="compact-value ' + corCls + '">' + s.rsLitroMed + '</span></div>'
             + '<div class="compact-box ' + bgCls + '"><div class="compact-title">M\u00c1XIMO (' + unidU + ')</div><span class="compact-value ' + corCls + '">' + s.kmlMax + '</span></div>'
             + '<div class="compact-box ' + bgCls + '" style="margin-bottom:0"><div class="compact-title">M\u00cdNIMO (' + unidU + ')</div><span class="compact-value ' + corCls + '">' + s.kmlMin + '</span></div>'
             + '</div>';
@@ -1632,9 +1641,21 @@ function exportarBackup() {
         return;
     }
     var historicos = {};
+    // Histórico de todos os veículos cadastrados
     vs.forEach(function(v) {
         historicos[v.id] = JSON.parse(localStorage.getItem('tc_hist_' + v.id)) || [];
     });
+    // Varre todo o armazenamento para incluir qualquer histórico remanescente
+    // (inclusive órfãos), garantindo que o backup contenha TODO o app.
+    for (var k = 0; k < localStorage.length; k++) {
+        var chave = localStorage.key(k);
+        if (chave && chave.indexOf('tc_hist_') === 0) {
+            var vid = chave.substring('tc_hist_'.length);
+            if (!(vid in historicos)) {
+                historicos[vid] = JSON.parse(localStorage.getItem(chave)) || [];
+            }
+        }
+    }
     var now = new Date();
     var backup = {
         app: 'VoltFuel',
@@ -1698,9 +1719,13 @@ function importarBackup(event) {
             event.target.value = '';
             return;
         }
-        // Limpar dados atuais
-        var vsAtuais = JSON.parse(localStorage.getItem(CHAVE_VEICULOS)) || [];
-        vsAtuais.forEach(function(v) { localStorage.removeItem('tc_hist_' + v.id); });
+        // Limpar dados atuais — remove TODOS os históricos (inclusive órfãos)
+        var chavesRemover = [];
+        for (var ki = 0; ki < localStorage.length; ki++) {
+            var c = localStorage.key(ki);
+            if (c && c.indexOf('tc_hist_') === 0) chavesRemover.push(c);
+        }
+        chavesRemover.forEach(function(c) { localStorage.removeItem(c); });
         localStorage.removeItem(CHAVE_VEICULOS);
         // Restaurar
         localStorage.setItem(CHAVE_VEICULOS, JSON.stringify(backup.data.veiculos));
