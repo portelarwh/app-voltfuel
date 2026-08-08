@@ -286,7 +286,7 @@
     <div style="display:flex;flex-direction:column;align-items:center;gap:16px;">
         <img src="assets/icon-192.png" alt="VoltFuel" style="width:128px;height:128px;border-radius:28px;animation:splashPulse 0.6s ease-out;">
         <div style="font-size:2rem;font-weight:800;color:#fff;letter-spacing:-.02em;animation:splashFade 0.8s ease-out;">VoltFuel</div>
-        <div id="app-version" style="font-size:.8rem;color:#555;animation:splashFade 0.8s ease-out;">v3.0.1</div>
+        <div id="app-version" style="font-size:.8rem;color:#555;animation:splashFade 0.8s ease-out;">v3.0.2</div>
     </div>
 </div>
 <!-- TELA 1: GARAGEM -->
@@ -662,7 +662,7 @@
 <script>
 // ⚠️ VERSÃO DO APP — fonte única. Incremente a CADA mudança publicada
 // e replique o mesmo valor em sw.js (CACHE_NAME) para forçar a atualização.
-var APP_VERSION='3.0.1';
+var APP_VERSION='3.0.2';
 var CORES=['#28a745','#007bff','#fd7e14','#6f42c1','#dc3545','#ffc107','#17a2b8','#e83e8c'];
 var CHAVE_VEICULOS='tc_veiculos';
 var veiculos=[],veiculoAtualId=null,historicoBruto=[],ciclosFechados=[];
@@ -980,15 +980,16 @@ function atualizarInterface(){
     document.getElementById('valSamples').innerText=ciclosFechados.length;
     mediaRsKmGeralParaAlerta=ciclosFechados.length>0?ciclosFechados.reduce(function(a,b){return a+b.custoPorKm;},0)/ciclosFechados.length:0;
     // Melhor performance — sempre global (histórico total, sem filtro)
+    // Média PONDERADA pelos km rodados: custo total ÷ km total de cada combustível
     var grupos={};
     ciclosFechados.forEach(function(c){
         var label=labelCombustivel(c.combustivelReal);
-        if(!grupos[label])grupos[label]={soma:0,n:0,cor:corCombustivel(c.combustivelReal)};
-        grupos[label].soma+=c.custoPorKm; grupos[label].n++;
+        if(!grupos[label])grupos[label]={somaCusto:0,somaKm:0,cor:corCombustivel(c.combustivelReal)};
+        grupos[label].somaCusto+=c.custoPorKm*c.kmRodado; grupos[label].somaKm+=c.kmRodado;
     });
     var melhorLabel=null,melhorCusto=Infinity,melhorCor='#888';
     Object.keys(grupos).forEach(function(k){
-        var med=grupos[k].soma/grupos[k].n;
+        var med=grupos[k].somaKm>0?grupos[k].somaCusto/grupos[k].somaKm:Infinity;
         if(med<melhorCusto){melhorCusto=med;melhorLabel=k;melhorCor=grupos[k].cor;}
     });
     var cardPerf=document.getElementById('card-melhor-perf');
