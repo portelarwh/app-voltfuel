@@ -3,13 +3,13 @@
 // ⚠️ VERSÃO DO APP — incremente a CADA mudança publicada.
 // Deve ser igual ao APP_VERSION definido em index.html.
 // Mudar este valor é o que força o navegador a baixar a nova versão.
-const CACHE_NAME = 'voltfuel-v3.0.3';
+const CACHE_NAME = 'voltfuel-v3.0.4';
 const ASSETS = [
-    '/',
-    '/index.html',
-    '/manifest.json',
-    '/assets/icon-192.png',
-    '/assets/icon-512.png',
+    './',
+    './index.html',
+    './manifest.json',
+    './assets/icon-192.png',
+    './assets/icon-512.png',
 ];
 
 self.addEventListener('install', function(event) {
@@ -40,12 +40,12 @@ self.addEventListener('fetch', function(event) {
             fetch(event.request, { cache: 'no-store' }).then(function(resp) {
                 var copia = resp.clone();
                 caches.open(CACHE_NAME).then(function(cache) {
-                    cache.put('/index.html', copia);
+                    cache.put('./index.html', copia);
                 });
                 return resp;
             }).catch(function() {
-                return caches.match('/index.html').then(function(c) {
-                    return c || caches.match('/');
+                return caches.match('./index.html').then(function(c) {
+                    return c || caches.match('./');
                 });
             })
         );
