@@ -286,7 +286,7 @@
     <div style="display:flex;flex-direction:column;align-items:center;gap:16px;">
         <img src="assets/icon-192.png" alt="VoltFuel" style="width:128px;height:128px;border-radius:28px;animation:splashPulse 0.6s ease-out;">
         <div style="font-size:2rem;font-weight:800;color:#fff;letter-spacing:-.02em;animation:splashFade 0.8s ease-out;">VoltFuel</div>
-        <div id="app-version" style="font-size:.8rem;color:#555;animation:splashFade 0.8s ease-out;cursor:pointer;" onclick="abrirVersaoInfo()" title="Detalhes da versão">v3.0.4</div>
+        <div id="app-version" style="font-size:.8rem;color:#555;animation:splashFade 0.8s ease-out;cursor:pointer;" onclick="abrirVersaoInfo()" title="Detalhes da versão">v3.0.5</div>
     </div>
 </div>
 <!-- TELA 1: GARAGEM -->
@@ -408,6 +408,9 @@
                         <div id="dica-primeiro-registro" style="display:none;font-size:.7rem;color:var(--yellow);background:rgba(255,193,7,.08);border:1px solid rgba(255,193,7,.3);border-radius:6px;padding:6px 8px;margin-top:4px;line-height:1.4;">
                             &#9888;&#65039; <b>Primeiro registro?</b> Digite <b>0</b> aqui. O app precisa de dois abastecimentos para calcular o consumo.
                         </div>
+                        <label style="display:flex;align-items:center;gap:6px;font-size:.72rem;color:var(--text-muted);margin-top:6px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:0;">
+                            <input type="checkbox" id="sem-km" onchange="toggleSemKm()" style="width:auto;margin:0;"> Esqueci a KM deste abastecimento (somar ao pr&#243;ximo c&#225;lculo)
+                        </label>
                     </div>
                     <div class="input-group">
                         <label>Valor da Nota (R$)</label>
@@ -648,7 +651,11 @@
                     <option value="Recarga El&#233;trica">Recarga El&#233;trica</option>
                 </select>
             </div>
-            <div class="input-group"><label>Dist&#226;ncia Rodada (km)</label><input type="number" id="edit-km" step="0.1" inputmode="decimal"></div>
+            <div class="input-group"><label>Dist&#226;ncia Rodada (km)</label><input type="number" id="edit-km" step="0.1" inputmode="decimal">
+                <label style="display:flex;align-items:center;gap:6px;font-size:.72rem;color:var(--text-muted);margin-top:6px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:0;">
+                    <input type="checkbox" id="edit-sem-km" onchange="toggleSemKmEdit()" style="width:auto;margin:0;"> Sem KM (somar ao pr&#243;ximo c&#225;lculo)
+                </label>
+            </div>
             <div class="input-group"><label>Valor da Nota (R$)</label><input type="text" id="edit-valor" inputmode="numeric" oninput="mascaraMoeda(event)"></div>
             <div class="input-group full-width"><label id="edit-label-litros">Litros Abastecidos</label><input type="number" id="edit-litros" step="0.1" inputmode="decimal"></div>
         </div>
@@ -688,8 +695,8 @@
 <script>
 // ⚠️ VERSÃO DO APP — fonte única. Incremente a CADA mudança publicada,
 // atualize APP_RELEASE_DATE e replique a versão em sw.js (CACHE_NAME).
-var APP_VERSION='3.0.4';
-var APP_RELEASE_DATE='2026-08-08'; // data em que esta versão foi publicada (YYYY-MM-DD)
+var APP_VERSION='3.0.5';
+var APP_RELEASE_DATE='2026-10-11'; // data em que esta versão foi publicada (YYYY-MM-DD)
 var CORES=['#28a745','#007bff','#fd7e14','#6f42c1','#dc3545','#ffc107','#17a2b8','#e83e8c'];
 var CHAVE_VEICULOS='tc_veiculos';
 var veiculos=[],veiculoAtualId=null,historicoBruto=[],ciclosFechados=[];
@@ -903,12 +910,28 @@ function parseDataBR(str){var p=str.split('/');return new Date(p[2],p[1]-1,p[0])
 function calcularCiclosSimples(hist){
     var c=[];
     for(var i=0;i<hist.length-1;i++){
-        var a=hist[i],b=hist[i+1];if(a.kmRodado<=0)continue;
-        var kml=a.kmRodado/a.litrosNaBomba,ck=(a.litrosNaBomba*b.precoPorLitro)/a.kmRodado;
+        var a=hist[i];
+        if(a.kmRodado<=0)continue; // sem km não fecha ciclo sozinho (pendente ou registro inicial)
+        // Dobra abastecimentos PENDENTES (esquecidos, lançados sem km) imediatamente anteriores:
+        // seus litros e custo foram consumidos neste mesmo trecho medido agora.
+        var litrosConsumidos=a.litrosNaBomba;
+        var custoConsumido=a.litrosNaBomba*hist[i+1].precoPorLitro;
+        var nPend=0,j=i+1;
+        while(j<hist.length-1 && hist[j].pendente && hist[j].kmRodado<=0){
+            litrosConsumidos+=hist[j].litrosNaBomba;
+            custoConsumido+=hist[j].litrosNaBomba*hist[j+1].precoPorLitro;
+            nPend++; j++;
+        }
+        var b=hist[j]; // base: primeira anterior com km, ou a mais antiga
+        if(litrosConsumidos<=0)continue;
+        var kml=a.kmRodado/litrosConsumidos;
+        var ck=custoConsumido/a.kmRodado;
+        var precoMedio=custoConsumido/litrosConsumidos;
         var dias=null,kpd=null;
         try{var df=Math.round((parseDataBR(a.data)-parseDataBR(b.data))/86400000);if(df>0){dias=df;kpd=a.kmRodado/df;}}catch(e){}
-        c.push({id_referencia:a.id,dataFechamento:a.data,combustivelReal:b.tipoAbastecido,
-            kmRodado:a.kmRodado,kmPorLitro:kml,custoPorKm:ck,precoBase:b.precoPorLitro,diasEntreCiclos:dias,kmPorDia:kpd});
+        c.push({id_referencia:a.id,dataFechamento:a.data,combustivelReal:hist[i+1].tipoAbastecido,
+            kmRodado:a.kmRodado,kmPorLitro:kml,custoPorKm:ck,precoBase:precoMedio,
+            diasEntreCiclos:dias,kmPorDia:kpd,pendentesIncluidos:nPend});
     }
     return c;
 }
@@ -936,7 +959,15 @@ function abrirAba(evt,nomeAba){
     evt.currentTarget.classList.add('active');
 }
 
+function toggleSemKm(){
+    var sk=document.getElementById('sem-km'),kmEl=document.getElementById('km');
+    if(!sk||!kmEl)return;
+    if(sk.checked){kmEl.value='';kmEl.disabled=true;kmEl.placeholder='Sem KM \u2014 somado ao pr\u00f3ximo';}
+    else{kmEl.disabled=false;kmEl.placeholder='Ex: 350.5';}
+}
+
 function calcularESalvar(){
+    var semKm=document.getElementById('sem-km')&&document.getElementById('sem-km').checked&&historicoBruto.length>0;
     var km=document.getElementById('km').value.replace(',','.');
     var val=document.getElementById('valor').value.replace(',','.');
     var lit=document.getElementById('litros').value.replace(',','.');
@@ -944,14 +975,23 @@ function calcularESalvar(){
     var dataISO=document.getElementById('dataAbastecimento').value;
     var dataBR=dataISO?isoParaBR(dataISO):new Date().toLocaleDateString('pt-BR');
     if(historicoBruto.length===0&&km==='')km='0';
-    if(km===''||val===''||lit===''||isNaN(km)||isNaN(val)||isNaN(lit)){alert('Preencha todos os campos num\u00e9ricos.');return;}
-    var vt=parseFloat(val),ln=parseFloat(lit);
-    historicoBruto.unshift({id:Date.now(),data:dataBR,tipoAbastecido:tipo,kmRodado:parseFloat(km),valorTotal:vt,litrosNaBomba:ln,precoPorLitro:vt/ln});
+    if(semKm){
+        if(val===''||lit===''||isNaN(val)||isNaN(lit)){alert('Informe o valor da nota e os litros.');return;}
+        var vtP=parseFloat(val),lnP=parseFloat(lit);
+        if(lnP<=0){alert('Litros inv\u00e1lidos.');return;}
+        historicoBruto.unshift({id:Date.now(),data:dataBR,tipoAbastecido:tipo,kmRodado:0,valorTotal:vtP,litrosNaBomba:lnP,precoPorLitro:vtP/lnP,pendente:true});
+    } else {
+        if(km===''||val===''||lit===''||isNaN(km)||isNaN(val)||isNaN(lit)){alert('Preencha todos os campos num\u00e9ricos.');return;}
+        var vt=parseFloat(val),ln=parseFloat(lit);
+        historicoBruto.unshift({id:Date.now(),data:dataBR,tipoAbastecido:tipo,kmRodado:parseFloat(km),valorTotal:vt,litrosNaBomba:ln,precoPorLitro:vt/ln,pendente:false});
+    }
     salvarHistorico(); atualizarInterface();
     document.getElementById('km').value='';document.getElementById('valor').value='';
     document.getElementById('litros').value='';document.getElementById('dataAbastecimento').value=hojeISO();
+    var sk=document.getElementById('sem-km'); if(sk){sk.checked=false;toggleSemKm();}
     document.getElementById('historyList').scrollTop=0;
-    if(historicoBruto.length===1)alert('Lan\u00e7amento inicial registrado! O primeiro ciclo ser\u00e1 fechado no seu pr\u00f3ximo abastecimento.');
+    if(semKm){alert('Abastecimento sem KM registrado! Os litros e o valor ser\u00e3o somados ao pr\u00f3ximo lan\u00e7amento com quilometragem.');}
+    else if(historicoBruto.length===1)alert('Lan\u00e7amento inicial registrado! O primeiro ciclo ser\u00e1 fechado no seu pr\u00f3ximo abastecimento.');
 }
 
 function reprocessarCiclos(){ciclosFechados=calcularCiclosSimples(historicoBruto);}
@@ -1032,27 +1072,46 @@ function atualizarInterface(){
     renderizarHistoricoVisual();
 }
 
+function _botoesAcaoHist(id){
+    return '<div class="btn-actions"><button class="btn-edit" onclick="abrirEdicao('+id+')">&#9999;&#65039;</button>'+
+        '<button class="btn-delete" onclick="excluirRegistroBruto('+id+')">&#128465;</button></div>';
+}
+
 function renderizarHistoricoVisual(){
     var list=document.getElementById('historyList'); list.innerHTML='';
     if(historicoBruto.length===0)return;
-    var ta=historicoBruto[0],rA=document.createElement('div'); rA.className='history-row tanque-aberto';
-    rA.innerHTML='<div class="history-data"><span class="history-kpi text-purple"><span class="badge badge-aberto">EM USO NO MOTOR</span></span>'+
-        '<span class="history-info">'+ta.data+' \u2022 Abastecido com '+ta.tipoAbastecido+'</span></div>'+
-        '<div class="btn-actions"><button class="btn-edit" onclick="abrirEdicao('+ta.id+')">&#9999;&#65039;</button>'+
-        '<button class="btn-delete" onclick="excluirRegistroBruto('+ta.id+')">&#128465;</button></div>';
-    list.appendChild(rA);
-    ciclosFechados.forEach(function(ciclo){
+    var mapaCiclo={};
+    ciclosFechados.forEach(function(c){mapaCiclo[c.id_referencia]=c;});
+    historicoBruto.forEach(function(reg,idx){
+        var ehPendente=(reg.pendente&&reg.kmRodado<=0);
+        if(idx===0){
+            // Entrada mais recente: combust\u00edvel em uso no motor
+            var rA=document.createElement('div'); rA.className='history-row tanque-aberto';
+            var aviso=ehPendente?' <span class="badge" style="background:rgba(255,193,7,.15);color:var(--yellow);border:1px solid rgba(255,193,7,.4);">SEM KM</span>':'';
+            var extra=ehPendente?' \u2022 '+reg.litrosNaBomba.toString().replace('.',',')+' L \u2022 R$ '+reg.valorTotal.toFixed(2).replace('.',',')+' \u2022 ser\u00e1 somado ao pr\u00f3ximo':'';
+            rA.innerHTML='<div class="history-data"><span class="history-kpi text-purple"><span class="badge badge-aberto">EM USO NO MOTOR</span>'+aviso+'</span>'+
+                '<span class="history-info">'+reg.data+' \u2022 Abastecido com '+reg.tipoAbastecido+extra+'</span></div>'+_botoesAcaoHist(reg.id);
+            list.appendChild(rA);
+            if(ehPendente)return; // sem km n\u00e3o fecha ciclo pr\u00f3prio
+        } else if(ehPendente){
+            // Abastecimento esquecido (sem km) no meio do hist\u00f3rico
+            var rp=document.createElement('div'); rp.className='history-row';
+            rp.innerHTML='<div class="history-data"><span class="history-kpi text-yellow"><span class="badge" style="background:rgba(255,193,7,.15);color:var(--yellow);border:1px solid rgba(255,193,7,.4);">&#9888;&#65039; SEM KM</span></span>'+
+                '<span class="history-info">'+reg.data+' \u2022 '+reg.tipoAbastecido+' \u2022 '+reg.litrosNaBomba.toString().replace('.',',')+' L \u2022 R$ '+reg.valorTotal.toFixed(2).replace('.',',')+' \u2022 somado ao pr\u00f3ximo c\u00e1lculo</span></div>'+_botoesAcaoHist(reg.id);
+            list.appendChild(rp); return;
+        }
+        var ciclo=mapaCiclo[reg.id];
+        if(!ciclo)return; // registro inicial (base) sem ciclo pr\u00f3prio
         var lim=mediaRsKmGeralParaAlerta*1.15,isA=(ciclosFechados.length>=3&&ciclo.custoPorKm>lim);
         var row=document.createElement('div'); row.className=isA?'history-row alerta-ativo':'history-row';
         var corHex=corCombustivel(ciclo.combustivelReal);var cor=(corHex==='#28a745')?'text-green':(corHex==='#fd7e14'?'text-orange':(corHex==='#4dabf7'?'text-blue':(corHex==='#ffc107'?'text-yellow':'text-purple')));
         var tagA=isA?'<span class="badge badge-alerta">&#9888;&#65039; CUSTO ALTO</span>':'';
         var infoDias=ciclo.diasEntreCiclos?' \u2022 '+ciclo.diasEntreCiclos+' dias \u2022 '+ciclo.kmPorDia.toFixed(1).replace('.',',')+' km/dia':'';
         var precoLitro=(typeof ciclo.precoBase==='number'&&!isNaN(ciclo.precoBase))?' \u2022 R$ '+ciclo.precoBase.toFixed(2).replace('.',',')+'/L':'';
+        var tagPend=ciclo.pendentesIncluidos>0?' <span class="badge" style="background:rgba(255,193,7,.12);color:var(--yellow);border:1px solid rgba(255,193,7,.35);">+'+ciclo.pendentesIncluidos+' sem km</span>':'';
         row.innerHTML='<div class="history-data"><span class="history-kpi '+cor+'">'+ciclo.kmPorLitro.toFixed(2).replace('.',',')+' '+unidadeRendimento(ciclo.combustivelReal)+' '+tagA+'</span>'+
             '<span class="history-info">'+ciclo.dataFechamento+' \u2022 '+ciclo.combustivelReal+
-            ' <span class="badge badge-fechado" style="margin-left:5px;">R$ '+ciclo.custoPorKm.toFixed(2).replace('.',',')+'/km</span>'+precoLitro+infoDias+'</span></div>'+
-            '<div class="btn-actions"><button class="btn-edit" onclick="abrirEdicao('+ciclo.id_referencia+')">&#9999;&#65039;</button>'+
-            '<button class="btn-delete" onclick="excluirRegistroBruto('+ciclo.id_referencia+')">&#128465;</button></div>';
+            ' <span class="badge badge-fechado" style="margin-left:5px;">R$ '+ciclo.custoPorKm.toFixed(2).replace('.',',')+'/km</span>'+precoLitro+infoDias+tagPend+'</span></div>'+_botoesAcaoHist(ciclo.id_referencia);
         list.appendChild(row);
     });
 }
@@ -1065,12 +1124,22 @@ function excluirRegistroBruto(id){
     }
 }
 
+function toggleSemKmEdit(){
+    var sk=document.getElementById('edit-sem-km'),kmEl=document.getElementById('edit-km');
+    if(!sk||!kmEl)return;
+    if(sk.checked){kmEl.value='';kmEl.disabled=true;}
+    else{kmEl.disabled=false;}
+}
+
 function abrirEdicao(id){
     var reg=historicoBruto.find(function(r){return r.id===id;}); if(!reg)return;
     idEmEdicao=id; var p=reg.data.split('/');
     document.getElementById('edit-data').value=p[2]+'-'+p[1]+'-'+p[0];
     document.getElementById('edit-tipo').value=reg.tipoAbastecido;
-    document.getElementById('edit-km').value=reg.kmRodado;
+    var ehPend=!!(reg.pendente&&reg.kmRodado<=0);
+    document.getElementById('edit-sem-km').checked=ehPend;
+    document.getElementById('edit-km').value=ehPend?'':reg.kmRodado;
+    toggleSemKmEdit();
     document.getElementById('edit-valor').value=reg.valorTotal.toFixed(2).replace('.',',');
     document.getElementById('edit-litros').value=reg.litrosNaBomba;
     document.getElementById('modal-edicao').classList.add('active');
@@ -1080,12 +1149,14 @@ function fecharModalEdicao(){document.getElementById('modal-edicao').classList.r
 
 function salvarEdicao(){
     var dI=document.getElementById('edit-data').value,tp=document.getElementById('edit-tipo').value;
+    var semKm=document.getElementById('edit-sem-km').checked;
     var km=parseFloat(document.getElementById('edit-km').value.replace(',','.')),vl=parseFloat(document.getElementById('edit-valor').value.replace(',','.'));
     var lt=parseFloat(document.getElementById('edit-litros').value.replace(',','.'));
-    if(!dI||isNaN(km)||isNaN(vl)||isNaN(lt)||lt<=0){alert('Preencha todos os campos.');return;}
+    if(!dI||isNaN(vl)||isNaN(lt)||lt<=0||(!semKm&&isNaN(km))){alert('Preencha todos os campos.');return;}
     historicoBruto=historicoBruto.map(function(r){
         if(r.id!==idEmEdicao)return r;
-        return{id:r.id,data:isoParaBR(dI),tipoAbastecido:tp,kmRodado:km,valorTotal:vl,litrosNaBomba:lt,precoPorLitro:vl/lt};
+        if(semKm) return{id:r.id,data:isoParaBR(dI),tipoAbastecido:tp,kmRodado:0,valorTotal:vl,litrosNaBomba:lt,precoPorLitro:vl/lt,pendente:true};
+        return{id:r.id,data:isoParaBR(dI),tipoAbastecido:tp,kmRodado:km,valorTotal:vl,litrosNaBomba:lt,precoPorLitro:vl/lt,pendente:false};
     });
     salvarHistorico(); fecharModalEdicao(); atualizarInterface();
 }
