@@ -292,7 +292,7 @@
     <div style="display:flex;flex-direction:column;align-items:center;gap:16px;">
         <img src="assets/icon-192.png" alt="VoltFuel" style="width:128px;height:128px;border-radius:28px;animation:splashPulse 0.6s ease-out;">
         <div style="font-size:2rem;font-weight:800;color:#fff;letter-spacing:-.02em;animation:splashFade 0.8s ease-out;">VoltFuel</div>
-        <div id="app-version" style="font-size:.8rem;color:#555;animation:splashFade 0.8s ease-out;cursor:pointer;" onclick="abrirVersaoInfo()" title="Detalhes da versão">v3.0.6</div>
+        <div id="app-version" style="font-size:.8rem;color:#555;animation:splashFade 0.8s ease-out;cursor:pointer;" onclick="abrirVersaoInfo()" title="Detalhes da versão">v3.0.7</div>
     </div>
 </div>
 <!-- TELA 1: GARAGEM -->
@@ -425,10 +425,10 @@
                     </div>
                     <div class="input-group full-width">
                         <label class="check-incompleto">
-                            <input type="checkbox" id="sem-km" onchange="toggleSemKm()"> <span><b>Abastecimento incompleto</b> (n&#227;o completei o tanque)</span>
+                            <input type="checkbox" id="chk-reinicio" onchange="toggleReinicio()"> <span><b>Reiniciar c&#225;lculo</b> (o abastecimento anterior n&#227;o encheu o tanque)</span>
                         </label>
-                        <div id="dica-incompleto" class="dica-incompleto" style="display:none;">
-                            Os litros, o valor e a km deste abastecimento ser&#227;o somados ao <b>pr&#243;ximo abastecimento com tanque cheio</b>, que fecha o c&#225;lculo correto. A km &#233; opcional aqui.
+                        <div id="dica-reinicio" class="dica-incompleto" style="display:none;">
+                            Marque no abastecimento em que voc&#234; <b>encheu o tanque</b>. O ciclo que estava em andamento &#233; desconsiderado e o c&#225;lculo recome&#231;a daqui, como no primeiro abastecimento do carro. A km &#233; opcional.
                         </div>
                     </div>
                 </div>
@@ -667,7 +667,7 @@
             <div class="input-group full-width"><label id="edit-label-litros">Litros Abastecidos</label><input type="number" id="edit-litros" step="0.1" inputmode="decimal"></div>
             <div class="input-group full-width">
                 <label class="check-incompleto">
-                    <input type="checkbox" id="edit-sem-km"> <span><b>Abastecimento incompleto</b> (n&#227;o completei o tanque)</span>
+                    <input type="checkbox" id="edit-chk-reinicio"> <span><b>Reiniciar c&#225;lculo</b> (o abastecimento anterior n&#227;o encheu o tanque)</span>
                 </label>
             </div>
         </div>
@@ -707,7 +707,7 @@
 <script>
 // ⚠️ VERSÃO DO APP — fonte única. Incremente a CADA mudança publicada,
 // atualize APP_RELEASE_DATE e replique a versão em sw.js (CACHE_NAME).
-var APP_VERSION='3.0.6';
+var APP_VERSION='3.0.7';
 var APP_RELEASE_DATE='2026-10-12'; // data em que esta versão foi publicada (YYYY-MM-DD)
 var CORES=['#28a745','#007bff','#fd7e14','#6f42c1','#dc3545','#ffc107','#17a2b8','#e83e8c'];
 var CHAVE_VEICULOS='tc_veiculos';
@@ -752,6 +752,7 @@ function mostrarTela(nome){
 function abrirDashboard(id,mostrarVoltar){
     veiculoAtualId=id;
     historicoBruto=JSON.parse(localStorage.getItem('tc_hist_'+id))||[];
+    if(migrarPendentes(historicoBruto))localStorage.setItem('tc_hist_'+id,JSON.stringify(historicoBruto));
     var v=veiculos.find(function(x){return x.id===id;});
     if(v){
         document.getElementById('dash-veiculo-nome').innerText=v.apelido+(v.modelo?' \u00b7 '+v.modelo:'');
@@ -919,34 +920,36 @@ function hojeISO(){return new Date().toISOString().split('T')[0];}
 function isoParaBR(v){var p=v.split('-');return p[2]+'/'+p[1]+'/'+p[0];}
 function parseDataBR(str){var p=str.split('/');return new Date(p[2],p[1]-1,p[0]);}
 
+// Reinício de cálculo: quando um abastecimento (tanque cheio) é marcado como "reinicio",
+// o anterior não encheu o tanque. Os ciclos fechados por ele e pelo anterior ficam fora
+// da média, e o cálculo recomeça a partir dele — como no primeiro abastecimento do carro.
+// (Compatível com o campo antigo "pendente", que marcava o próprio abastecimento incompleto.)
+function cicloDescartado(hist,i){
+    var a=hist[i],mais_novo=hist[i-1],anterior=hist[i+1];
+    return !!(a.reinicio||(mais_novo&&mais_novo.reinicio)||a.pendente||(anterior&&anterior.pendente));
+}
+
+// Converte a marcação antiga "pendente" (no abastecimento incompleto) para "reinicio"
+// no abastecimento seguinte — resultado de cálculo idêntico.
+function migrarPendentes(hist){
+    var mudou=false;
+    for(var k=1;k<hist.length;k++){
+        if(hist[k].pendente){hist[k-1].reinicio=true;delete hist[k].pendente;mudou=true;}
+    }
+    return mudou;
+}
+
 function calcularCiclosSimples(hist){
     var c=[];
     for(var i=0;i<hist.length-1;i++){
-        var a=hist[i];
-        // Abastecimento INCOMPLETO (tanque não completado) nunca fecha ciclo sozinho
-        if(a.pendente||a.kmRodado<=0)continue;
-        // Soma os abastecimentos incompletos imediatamente anteriores: como o tanque só
-        // voltou a ficar cheio agora, seus litros, custo e km pertencem a este mesmo ciclo.
-        var kmTotal=a.kmRodado;
-        var litrosConsumidos=a.litrosNaBomba;
-        var custoConsumido=a.litrosNaBomba*hist[i+1].precoPorLitro;
-        var nPend=0,j=i+1;
-        while(j<hist.length-1 && hist[j].pendente){
-            kmTotal+=(hist[j].kmRodado||0);
-            litrosConsumidos+=hist[j].litrosNaBomba;
-            custoConsumido+=hist[j].litrosNaBomba*hist[j+1].precoPorLitro;
-            nPend++; j++;
-        }
-        var b=hist[j]; // base: último abastecimento completo (ou o registro inicial)
-        if(litrosConsumidos<=0||kmTotal<=0)continue;
-        var kml=kmTotal/litrosConsumidos;
-        var ck=custoConsumido/kmTotal;
-        var precoMedio=custoConsumido/litrosConsumidos;
+        var a=hist[i],b=hist[i+1];
+        if(a.kmRodado<=0)continue;
+        if(cicloDescartado(hist,i))continue;
+        var kml=a.kmRodado/a.litrosNaBomba,ck=(a.litrosNaBomba*b.precoPorLitro)/a.kmRodado;
         var dias=null,kpd=null;
-        try{var df=Math.round((parseDataBR(a.data)-parseDataBR(b.data))/86400000);if(df>0){dias=df;kpd=kmTotal/df;}}catch(e){}
-        c.push({id_referencia:a.id,dataFechamento:a.data,combustivelReal:hist[i+1].tipoAbastecido,
-            kmRodado:kmTotal,kmPorLitro:kml,custoPorKm:ck,precoBase:precoMedio,
-            diasEntreCiclos:dias,kmPorDia:kpd,pendentesIncluidos:nPend});
+        try{var df=Math.round((parseDataBR(a.data)-parseDataBR(b.data))/86400000);if(df>0){dias=df;kpd=a.kmRodado/df;}}catch(e){}
+        c.push({id_referencia:a.id,dataFechamento:a.data,combustivelReal:b.tipoAbastecido,
+            kmRodado:a.kmRodado,kmPorLitro:kml,custoPorKm:ck,precoBase:b.precoPorLitro,diasEntreCiclos:dias,kmPorDia:kpd});
     }
     return c;
 }
@@ -974,37 +977,31 @@ function abrirAba(evt,nomeAba){
     evt.currentTarget.classList.add('active');
 }
 
-function toggleSemKm(){
-    var sk=document.getElementById('sem-km'),dica=document.getElementById('dica-incompleto');
-    if(dica)dica.style.display=(sk&&sk.checked)?'':'none';
+function toggleReinicio(){
+    var ck=document.getElementById('chk-reinicio'),dica=document.getElementById('dica-reinicio');
+    if(dica)dica.style.display=(ck&&ck.checked)?'':'none';
 }
 
 function calcularESalvar(){
-    var semKm=document.getElementById('sem-km')&&document.getElementById('sem-km').checked&&historicoBruto.length>0;
+    var reinicio=!!(document.getElementById('chk-reinicio')&&document.getElementById('chk-reinicio').checked&&historicoBruto.length>0);
     var km=document.getElementById('km').value.replace(',','.');
     var val=document.getElementById('valor').value.replace(',','.');
     var lit=document.getElementById('litros').value.replace(',','.');
     var tipo=document.getElementById('tipo').value;
     var dataISO=document.getElementById('dataAbastecimento').value;
     var dataBR=dataISO?isoParaBR(dataISO):new Date().toLocaleDateString('pt-BR');
-    if(historicoBruto.length===0&&km==='')km='0';
-    if(semKm){
-        // Abastecimento incompleto: km opcional (ser\u00e1 somada ao pr\u00f3ximo tanque cheio)
-        if(val===''||lit===''||isNaN(val)||isNaN(lit)||(km!==''&&isNaN(km))){alert('Informe o valor da nota e os litros.');return;}
-        var vtP=parseFloat(val),lnP=parseFloat(lit),kmP=km===''?0:parseFloat(km);
-        if(lnP<=0){alert('Litros inv\u00e1lidos.');return;}
-        historicoBruto.unshift({id:Date.now(),data:dataBR,tipoAbastecido:tipo,kmRodado:kmP,valorTotal:vtP,litrosNaBomba:lnP,precoPorLitro:vtP/lnP,pendente:true});
-    } else {
-        if(km===''||val===''||lit===''||isNaN(km)||isNaN(val)||isNaN(lit)){alert('Preencha todos os campos num\u00e9ricos.');return;}
-        var vt=parseFloat(val),ln=parseFloat(lit);
-        historicoBruto.unshift({id:Date.now(),data:dataBR,tipoAbastecido:tipo,kmRodado:parseFloat(km),valorTotal:vt,litrosNaBomba:ln,precoPorLitro:vt/ln,pendente:false});
-    }
+    // Primeiro registro e rein\u00edcio funcionam igual: a km n\u00e3o entra no c\u00e1lculo
+    if((historicoBruto.length===0||reinicio)&&km==='')km='0';
+    if(km===''||val===''||lit===''||isNaN(km)||isNaN(val)||isNaN(lit)){alert('Preencha todos os campos num\u00e9ricos.');return;}
+    var vt=parseFloat(val),ln=parseFloat(lit);
+    if(ln<=0){alert('Litros inv\u00e1lidos.');return;}
+    historicoBruto.unshift({id:Date.now(),data:dataBR,tipoAbastecido:tipo,kmRodado:parseFloat(km),valorTotal:vt,litrosNaBomba:ln,precoPorLitro:vt/ln,reinicio:reinicio});
     salvarHistorico(); atualizarInterface();
     document.getElementById('km').value='';document.getElementById('valor').value='';
     document.getElementById('litros').value='';document.getElementById('dataAbastecimento').value=hojeISO();
-    var sk=document.getElementById('sem-km'); if(sk){sk.checked=false;toggleSemKm();}
+    var ck=document.getElementById('chk-reinicio'); if(ck){ck.checked=false;toggleReinicio();}
     document.getElementById('historyList').scrollTop=0;
-    if(semKm){alert('Abastecimento incompleto registrado! Ele ser\u00e1 somado ao pr\u00f3ximo abastecimento com tanque cheio, que fecha o c\u00e1lculo.');}
+    if(reinicio)alert('C\u00e1lculo reiniciado! O ciclo anterior foi desconsiderado e o pr\u00f3ximo ser\u00e1 fechado no seu pr\u00f3ximo abastecimento.');
     else if(historicoBruto.length===1)alert('Lan\u00e7amento inicial registrado! O primeiro ciclo ser\u00e1 fechado no seu pr\u00f3ximo abastecimento.');
 }
 
@@ -1096,37 +1093,36 @@ function renderizarHistoricoVisual(){
     if(historicoBruto.length===0)return;
     var mapaCiclo={};
     ciclosFechados.forEach(function(c){mapaCiclo[c.id_referencia]=c;});
+    var estiloAmarelo='background:rgba(255,193,7,.15);color:var(--yellow);border:1px solid rgba(255,193,7,.4);';
     historicoBruto.forEach(function(reg,idx){
-        var ehPendente=!!reg.pendente;
-        var badgeInc='<span class="badge" style="background:rgba(255,193,7,.15);color:var(--yellow);border:1px solid rgba(255,193,7,.4);">INCOMPLETO</span>';
-        var resumoInc=ehPendente?' \u2022 '+reg.litrosNaBomba.toString().replace('.',',')+' L \u2022 R$ '+reg.valorTotal.toFixed(2).replace('.',',')+
-            (reg.kmRodado>0?' \u2022 '+reg.kmRodado.toString().replace('.',',')+' km':''):'';
+        var badgeReinicio=reg.reinicio?' <span class="badge" style="'+estiloAmarelo+'">REIN\u00cdCIO</span>':'';
         if(idx===0){
             // Entrada mais recente: combust\u00edvel em uso no motor
             var rA=document.createElement('div'); rA.className='history-row tanque-aberto';
-            rA.innerHTML='<div class="history-data"><span class="history-kpi text-purple"><span class="badge badge-aberto">EM USO NO MOTOR</span>'+(ehPendente?badgeInc:'')+'</span>'+
-                '<span class="history-info">'+reg.data+' \u2022 Abastecido com '+reg.tipoAbastecido+resumoInc+(ehPendente?' \u2022 aguardando tanque cheio':'')+'</span></div>'+_botoesAcaoHist(reg.id);
+            rA.innerHTML='<div class="history-data"><span class="history-kpi text-purple"><span class="badge badge-aberto">EM USO NO MOTOR</span>'+badgeReinicio+'</span>'+
+                '<span class="history-info">'+reg.data+' \u2022 Abastecido com '+reg.tipoAbastecido+(reg.reinicio?' \u2022 c\u00e1lculo recome\u00e7a aqui':'')+'</span></div>'+_botoesAcaoHist(reg.id);
             list.appendChild(rA);
-            if(ehPendente)return; // incompleto n\u00e3o fecha ciclo pr\u00f3prio
-        } else if(ehPendente){
-            // Abastecimento incompleto no meio do hist\u00f3rico (somado ao pr\u00f3ximo tanque cheio)
-            var rp=document.createElement('div'); rp.className='history-row';
-            rp.innerHTML='<div class="history-data"><span class="history-kpi text-yellow">'+badgeInc+'</span>'+
-                '<span class="history-info">'+reg.data+' \u2022 '+reg.tipoAbastecido+resumoInc+' \u2022 somado ao pr\u00f3ximo tanque cheio</span></div>'+_botoesAcaoHist(reg.id);
-            list.appendChild(rp); return;
         }
         var ciclo=mapaCiclo[reg.id];
-        if(!ciclo)return; // registro inicial (base) sem ciclo pr\u00f3prio
+        if(!ciclo){
+            // Sem ciclo pr\u00f3prio: registro inicial (n\u00e3o exibido) ou ciclo desconsiderado pelo rein\u00edcio
+            if(idx===0||idx===historicoBruto.length-1)return;
+            var rf=document.createElement('div'); rf.className='history-row';
+            var rotulo=reg.reinicio?'REIN\u00cdCIO':'FORA DA M\u00c9DIA';
+            var motivo=reg.reinicio?'c\u00e1lculo recome\u00e7ou aqui':'tanque n\u00e3o foi completado';
+            rf.innerHTML='<div class="history-data"><span class="history-kpi text-yellow"><span class="badge" style="'+estiloAmarelo+'">'+rotulo+'</span></span>'+
+                '<span class="history-info">'+reg.data+' \u2022 '+reg.tipoAbastecido+' \u2022 '+reg.litrosNaBomba.toString().replace('.',',')+' L \u2022 R$ '+reg.valorTotal.toFixed(2).replace('.',',')+' \u2022 '+motivo+'</span></div>'+_botoesAcaoHist(reg.id);
+            list.appendChild(rf); return;
+        }
         var lim=mediaRsKmGeralParaAlerta*1.15,isA=(ciclosFechados.length>=3&&ciclo.custoPorKm>lim);
         var row=document.createElement('div'); row.className=isA?'history-row alerta-ativo':'history-row';
         var corHex=corCombustivel(ciclo.combustivelReal);var cor=(corHex==='#28a745')?'text-green':(corHex==='#fd7e14'?'text-orange':(corHex==='#4dabf7'?'text-blue':(corHex==='#ffc107'?'text-yellow':'text-purple')));
         var tagA=isA?'<span class="badge badge-alerta">&#9888;&#65039; CUSTO ALTO</span>':'';
         var infoDias=ciclo.diasEntreCiclos?' \u2022 '+ciclo.diasEntreCiclos+' dias \u2022 '+ciclo.kmPorDia.toFixed(1).replace('.',',')+' km/dia':'';
         var precoLitro=(typeof ciclo.precoBase==='number'&&!isNaN(ciclo.precoBase))?' \u2022 R$ '+ciclo.precoBase.toFixed(2).replace('.',',')+'/L':'';
-        var tagPend=ciclo.pendentesIncluidos>0?' <span class="badge" style="background:rgba(255,193,7,.12);color:var(--yellow);border:1px solid rgba(255,193,7,.35);">+'+ciclo.pendentesIncluidos+(ciclo.pendentesIncluidos>1?' incompletos':' incompleto')+'</span>':'';
         row.innerHTML='<div class="history-data"><span class="history-kpi '+cor+'">'+ciclo.kmPorLitro.toFixed(2).replace('.',',')+' '+unidadeRendimento(ciclo.combustivelReal)+' '+tagA+'</span>'+
             '<span class="history-info">'+ciclo.dataFechamento+' \u2022 '+ciclo.combustivelReal+
-            ' <span class="badge badge-fechado" style="margin-left:5px;">R$ '+ciclo.custoPorKm.toFixed(2).replace('.',',')+'/km</span>'+precoLitro+infoDias+tagPend+'</span></div>'+_botoesAcaoHist(ciclo.id_referencia);
+            ' <span class="badge badge-fechado" style="margin-left:5px;">R$ '+ciclo.custoPorKm.toFixed(2).replace('.',',')+'/km</span>'+precoLitro+infoDias+'</span></div>'+_botoesAcaoHist(ciclo.id_referencia);
         list.appendChild(row);
     });
 }
@@ -1144,9 +1140,8 @@ function abrirEdicao(id){
     idEmEdicao=id; var p=reg.data.split('/');
     document.getElementById('edit-data').value=p[2]+'-'+p[1]+'-'+p[0];
     document.getElementById('edit-tipo').value=reg.tipoAbastecido;
-    var ehPend=!!reg.pendente;
-    document.getElementById('edit-sem-km').checked=ehPend;
-    document.getElementById('edit-km').value=(ehPend&&!(reg.kmRodado>0))?'':reg.kmRodado;
+    document.getElementById('edit-chk-reinicio').checked=!!reg.reinicio;
+    document.getElementById('edit-km').value=reg.kmRodado;
     document.getElementById('edit-valor').value=reg.valorTotal.toFixed(2).replace('.',',');
     document.getElementById('edit-litros').value=reg.litrosNaBomba;
     document.getElementById('modal-edicao').classList.add('active');
@@ -1156,16 +1151,17 @@ function fecharModalEdicao(){document.getElementById('modal-edicao').classList.r
 
 function salvarEdicao(){
     var dI=document.getElementById('edit-data').value,tp=document.getElementById('edit-tipo').value;
-    var semKm=document.getElementById('edit-sem-km').checked;
+    var reinicio=document.getElementById('edit-chk-reinicio').checked;
     var kmStr=document.getElementById('edit-km').value.replace(',','.');
     var km=parseFloat(kmStr),vl=parseFloat(document.getElementById('edit-valor').value.replace(',','.'));
     var lt=parseFloat(document.getElementById('edit-litros').value.replace(',','.'));
-    if(semKm&&kmStr==='')km=0; // incompleto: km opcional
+    if(reinicio&&kmStr==='')km=0; // reinício: km opcional (não entra no cálculo)
     if(!dI||isNaN(vl)||isNaN(lt)||lt<=0||isNaN(km)){alert('Preencha todos os campos.');return;}
     historicoBruto=historicoBruto.map(function(r){
         if(r.id!==idEmEdicao)return r;
-        if(semKm) return{id:r.id,data:isoParaBR(dI),tipoAbastecido:tp,kmRodado:km,valorTotal:vl,litrosNaBomba:lt,precoPorLitro:vl/lt,pendente:true};
-        return{id:r.id,data:isoParaBR(dI),tipoAbastecido:tp,kmRodado:km,valorTotal:vl,litrosNaBomba:lt,precoPorLitro:vl/lt,pendente:false};
+        var novo={id:r.id,data:isoParaBR(dI),tipoAbastecido:tp,kmRodado:km,valorTotal:vl,litrosNaBomba:lt,precoPorLitro:vl/lt,reinicio:reinicio};
+        if(r.pendente)novo.pendente=true; // preserva marcação antiga (v3.0.5/3.0.6)
+        return novo;
     });
     salvarHistorico(); fecharModalEdicao(); atualizarInterface();
 }
